@@ -1,0 +1,471 @@
+{
+  "info": {
+    "name": "Millis SaaS — Admin APIs",
+    "_postman_id": "22222222-3333-4444-5555-666666666666",
+    "description": "Admin API endpoints for phone management, campaign approval, and call/session tracking.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [],
+  "item": [
+    {
+      "name": "1) Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/health", "host": ["{{baseUrl}}"], "path": ["api","v1","health"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Health OK', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Status is ok', function () { pm.expect(json.status).to.eql('ok'); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2) Auth — Login (Admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.environment.set('accessToken', json.tokens.access);",
+              "pm.environment.set('refreshToken', json.tokens.refresh);",
+              "pm.test('Has admin role', function () { pm.expect(json.user.role).to.eql('admin'); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}" },
+        "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+      }
+    },
+    {
+      "name": "3) Admin — List Phones",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('accessToken') });"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  pm.test('Admin Phones OK', function () { pm.response.to.have.status(200); });",
+              "  const json = pm.response.json();",
+              "  pm.test('Has items array', function () { pm.expect(json).to.have.property('items'); });",
+              "  pm.test('Has pagination', function () {",
+              "    pm.expect(json).to.have.property('page');",
+              "    pm.expect(json).to.have.property('pageSize');",
+              "  });",
+              "} else {",
+              "  pm.test('Forbidden for non-admin', function () { pm.response.to.have.status(403); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/phones?page=1&pageSize=25&search=+91",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","admin","phones"],
+          "query": [
+            {"key": "page", "value": "1"},
+            {"key": "pageSize", "value": "25"},
+            {"key": "search", "value": "+91"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "4) Admin — Import Phones",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('accessToken') });"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 202) {",
+              "  pm.test('Import Accepted', function () { pm.response.to.have.status(202); });",
+              "  const json = pm.response.json();",
+              "  pm.test('Has message', function () { pm.expect(json).to.have.property('message'); });",
+              "  pm.test('Message contains Import queued', function () { pm.expect(json.message).to.include('Import queued'); });",
+              "} else {",
+              "  pm.test('Forbidden for non-admin', function () { pm.response.to.have.status(403); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phones\": [\"+14155550100\", \"+14155550101\"]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/phones/import",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","admin","phones","import"]
+        }
+      }
+    },
+    {
+      "name": "5) Admin — Set Phone Agent",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('accessToken') });"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  pm.test('Set Agent OK', function () { pm.response.to.have.status(200); });",
+              "  const json = pm.response.json();",
+              "  pm.test('Has phone and agentId', function () {",
+              "    pm.expect(json).to.have.property('phone');",
+              "    pm.expect(json).to.have.property('agentId');",
+              "  });",
+              "  pm.test('AgentId matches', function () { pm.expect(json.agentId).to.eql('agent_123'); });",
+              "} else {",
+              "  pm.test('Forbidden for non-admin', function () { pm.response.to.have.status(403); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"agentId\": \"agent_123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/phones/+14155550100/set_agent",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","admin","phones","+14155550100","set_agent"]
+        }
+      }
+    },
+    {
+      "name": "6) Admin — Update Phone Tags",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('accessToken') });"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  pm.test('Update Tags OK', function () { pm.response.to.have.status(200); });",
+              "  const json = pm.response.json();",
+              "  pm.test('Has phone and tags', function () {",
+              "    pm.expect(json).to.have.property('phone');",
+              "    pm.expect(json).to.have.property('tags');",
+              "  });",
+              "  pm.test('Tags array contains vip and beta', function () {",
+              "    pm.expect(json.tags).to.include('vip');",
+              "    pm.expect(json.tags).to.include('beta');",
+              "  });",
+              "} else {",
+              "  pm.test('Forbidden for non-admin', function () { pm.response.to.have.status(403); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tags\": [\"vip\", \"beta\"]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/phones/+14155550100/tags",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","admin","phones","+14155550100","tags"]
+        }
+      }
+    },
+    {
+      "name": "7) Admin — Approve Campaign (Positive)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('accessToken') });"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  pm.test('Approve Campaign OK', function () { pm.response.to.have.status(200); });",
+              "  const json = pm.response.json();",
+              "  pm.test('Has status and record', function () {",
+              "    pm.expect(json).to.have.property('status');",
+              "    pm.expect(json).to.have.property('record');",
+              "  });",
+              "  pm.test('Status is approved', function () { pm.expect(json.status).to.eql('approved'); });",
+              "} else {",
+              "  pm.test('Forbidden for non-admin', function () { pm.response.to.have.status(403); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"approve\": true,\n  \"reason\": \"Meets compliance.\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/campaigns/campaign_123/approve",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","admin","campaigns","campaign_123","approve"]
+        }
+      }
+    },
+    {
+      "name": "8) Admin — Reject Campaign (Negative)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('accessToken') });"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  pm.test('Reject Campaign OK', function () { pm.response.to.have.status(200); });",
+              "  const json = pm.response.json();",
+              "  pm.test('Has status and record', function () {",
+              "    pm.expect(json).to.have.property('status');",
+              "    pm.expect(json).to.have.property('record');",
+              "  });",
+              "  pm.test('Status is rejected', function () { pm.expect(json.status).to.eql('rejected'); });",
+              "} else {",
+              "  pm.test('Forbidden for non-admin', function () { pm.response.to.have.status(403); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"approve\": false,\n  \"reason\": \"Missing DNC proof.\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/campaigns/campaign_456/approve",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","admin","campaigns","campaign_456","approve"]
+        }
+      }
+    },
+    {
+      "name": "9) Admin — List Call Logs",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('accessToken') });"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  pm.test('Call Logs OK', function () { pm.response.to.have.status(200); });",
+              "  const json = pm.response.json();",
+              "  pm.test('Has items array', function () { pm.expect(json).to.have.property('items'); });",
+              "  pm.test('Has pagination', function () {",
+              "    pm.expect(json).to.have.property('page');",
+              "    pm.expect(json).to.have.property('pageSize');",
+              "  });",
+              "} else {",
+              "  pm.test('Forbidden for non-admin', function () { pm.response.to.have.status(403); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/call_logs?from=2025-09-01T00:00:00Z&to=2025-09-23T23:59:59Z&page=1&pageSize=50",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","admin","call_logs"],
+          "query": [
+            {"key": "from", "value": "2025-09-01T00:00:00Z"},
+            {"key": "to", "value": "2025-09-23T23:59:59Z"},
+            {"key": "page", "value": "1"},
+            {"key": "pageSize", "value": "50"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "10) Admin — List Sessions",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('accessToken') });"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  pm.test('Sessions OK', function () { pm.response.to.have.status(200); });",
+              "  const json = pm.response.json();",
+              "  pm.test('Has items array', function () { pm.expect(json).to.have.property('items'); });",
+              "  pm.test('Has pagination', function () {",
+              "    pm.expect(json).to.have.property('page');",
+              "    pm.expect(json).to.have.property('pageSize');",
+              "  });",
+              "} else {",
+              "  pm.test('Forbidden for non-admin', function () { pm.response.to.have.status(403); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/sessions?agentId=agent_123&page=1&pageSize=20",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","admin","sessions"],
+          "query": [
+            {"key": "agentId", "value": "agent_123"},
+            {"key": "page", "value": "1"},
+            {"key": "pageSize", "value": "20"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "11) Negative — Admin API without token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/phones", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","phones"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [ "pm.test('401 Unauthorized', function () { pm.response.to.have.status(401); });" ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "12) Negative — Admin API with user token",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('userAccessToken') });"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [ "pm.test('403 Forbidden', function () { pm.response.to.have.status(403); });" ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/phones", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","phones"] }
+      }
+    }
+  ]
+}

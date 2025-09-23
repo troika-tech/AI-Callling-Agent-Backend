@@ -1,0 +1,856 @@
+openapi: 3.0.3
+info:
+  title: Millis SaaS API
+  description: API for AI Calling Agent Backend with admin management capabilities
+  version: 1.0.0
+  contact:
+    name: Backend Development Team
+servers:
+  - url: http://localhost:4000/api/v1
+    description: Development server
+  - url: https://api.millis-saas.com/api/v1
+    description: Production server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Check if the API is running
+      security: []
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /auth/signup:
+    post:
+      summary: User Registration
+      description: Register a new user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+                password:
+                  type: string
+                  minLength: 8
+                  example: "password123"
+                name:
+                  type: string
+                  example: "John Doe"
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  tokens:
+                    $ref: '#/components/schemas/Tokens'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      summary: User Login
+      description: Authenticate user and get access tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+                password:
+                  type: string
+                  example: "password123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  tokens:
+                    $ref: '#/components/schemas/Tokens'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      summary: Refresh Token
+      description: Get a new access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '400':
+          description: Missing refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /me/whoami:
+    get:
+      summary: Get Current User
+      description: Get current authenticated user information
+      responses:
+        '200':
+          description: User information retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /user/placeholder:
+    get:
+      summary: User Dashboard Placeholder
+      description: Placeholder endpoint for user-specific functionality
+      responses:
+        '200':
+          description: Placeholder response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User dashboard APIs will live here."
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/placeholder:
+    get:
+      summary: Admin Dashboard Placeholder
+      description: Placeholder endpoint for admin dashboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Placeholder response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Admin dashboard APIs will live here."
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/phones:
+    get:
+      summary: List Phones
+      description: Get paginated list of phone numbers with optional search
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: search
+          in: query
+          description: Search term
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        '200':
+          description: Phones retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+    post:
+      summary: Import Phones
+      description: Import phone numbers in bulk
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phones
+              properties:
+                phones:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 20
+                  minItems: 1
+                  example: ["+14155550100", "+14155550101"]
+      responses:
+        '202':
+          description: Import queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Import queued"
+                  result:
+                    type: object
+                    properties:
+                      jobId:
+                        type: string
+                        example: "import_job_123"
+                      status:
+                        type: string
+                        example: "pending"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /admin/phones/{phone}/set_agent:
+    post:
+      summary: Set Phone Agent
+      description: Assign an agent to a specific phone number
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          description: Phone number
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 20
+            example: "+14155550100"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - agentId
+              properties:
+                agentId:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  example: "agent_123"
+      responses:
+        '200':
+          description: Agent set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  phone:
+                    type: string
+                    example: "+14155550100"
+                  agentId:
+                    type: string
+                    example: "agent_123"
+                  out:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      agentId:
+                        type: string
+                        example: "agent_123"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /admin/phones/{phone}/tags:
+    patch:
+      summary: Update Phone Tags
+      description: Update tags for a specific phone number
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          description: Phone number
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 20
+            example: "+14155550100"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tags
+              properties:
+                tags:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 30
+                  example: ["vip", "beta", "premium"]
+      responses:
+        '200':
+          description: Tags updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  phone:
+                    type: string
+                    example: "+14155550100"
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                    example: ["vip", "beta", "premium"]
+                  out:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                        example: ["vip", "beta", "premium"]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /admin/campaigns/{id}/approve:
+    post:
+      summary: Approve/Reject Campaign
+      description: Approve or reject a campaign
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Campaign ID
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 50
+            example: "campaign_123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - approve
+              properties:
+                approve:
+                  type: boolean
+                  example: true
+                reason:
+                  type: string
+                  maxLength: 500
+                  example: "Meets compliance requirements"
+      responses:
+        '200':
+          description: Campaign approval processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [approved, rejected]
+                    example: "approved"
+                  record:
+                    $ref: '#/components/schemas/CampaignApproval'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /admin/call_logs:
+    get:
+      summary: List Call Logs
+      description: Get paginated list of call logs with optional filtering
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: from
+          in: query
+          description: Start date
+          schema:
+            type: string
+            format: date-time
+            example: "2025-09-01T00:00:00Z"
+        - name: to
+          in: query
+          description: End date
+          schema:
+            type: string
+            format: date-time
+            example: "2025-09-23T23:59:59Z"
+        - name: status
+          in: query
+          description: Call status
+          schema:
+            type: string
+            maxLength: 20
+            example: "completed"
+      responses:
+        '200':
+          description: Call logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CallLog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /admin/sessions:
+    get:
+      summary: List Sessions
+      description: Get paginated list of sessions with optional filtering
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: phone
+          in: query
+          description: Phone number filter
+          schema:
+            type: string
+            maxLength: 20
+            example: "+14155550100"
+        - name: agentId
+          in: query
+          description: Agent ID filter
+          schema:
+            type: string
+            maxLength: 50
+            example: "agent_123"
+      responses:
+        '200':
+          description: Sessions retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "64f8a1b2c3d4e5f6a7b8c9d0"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          example: "John Doe"
+        role:
+          type: string
+          enum: [user, admin]
+          example: "user"
+
+    Tokens:
+      type: object
+      properties:
+        access:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    Phone:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "phone1"
+        number:
+          type: string
+          example: "+14155550100"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["vip", "premium"]
+        agentId:
+          type: string
+          nullable: true
+          example: "agent_123"
+        meta:
+          type: object
+          additionalProperties: true
+
+    CallLog:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "call1"
+        from:
+          type: string
+          example: "+14155550100"
+        to:
+          type: string
+          example: "+14155550101"
+        startedAt:
+          type: string
+          format: date-time
+          example: "2025-09-01T10:00:00Z"
+        endedAt:
+          type: string
+          format: date-time
+          example: "2025-09-01T10:05:30Z"
+        durationSec:
+          type: integer
+          example: 330
+        status:
+          type: string
+          example: "completed"
+        meta:
+          type: object
+          additionalProperties: true
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "session1"
+        userPhone:
+          type: string
+          example: "+14155550100"
+        agentId:
+          type: string
+          example: "agent_123"
+        startedAt:
+          type: string
+          format: date-time
+          example: "2025-09-01T10:00:00Z"
+        endedAt:
+          type: string
+          format: date-time
+          example: "2025-09-01T10:30:00Z"
+        meta:
+          type: object
+          additionalProperties: true
+
+    CampaignApproval:
+      type: object
+      properties:
+        campaignId:
+          type: string
+          example: "campaign_123"
+        approvedBy:
+          type: string
+          example: "64f8a1b2c3d4e5f6a7b8c9d0"
+        status:
+          type: string
+          enum: [approved, rejected]
+          example: "approved"
+        reason:
+          type: string
+          example: "Meets compliance requirements"
+        millisResponse:
+          type: object
+          additionalProperties: true
+
+    PaginatedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 50
+        total:
+          type: integer
+          example: 100
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Error message"
+        code:
+          type: string
+          example: "ERROR_CODE"
+        details:
+          type: string
+          example: "Additional error details"
+
+    ValidationError:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              msg:
+                type: string
+                example: "Page must be a positive integer"
+              param:
+                type: string
+                example: "page"
+              location:
+                type: string
+                example: "query"
+
+  responses:
+    Unauthorized:
+      description: Unauthorized - Invalid or missing token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Invalid token"
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Forbidden"
+
+    ValidationError:
+      description: Validation Error - Invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+
+    NotFound:
+      description: Not Found - Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Not found"
+
+    RateLimited:
+      description: Too Many Requests - Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Too many requests, please try again later."
+
+    ExternalServiceError:
+      description: Bad Gateway - External service error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "External service error"
+            code: "EXTERNAL_SERVICE_ERROR"
+
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Internal Server Error"
+            code: "INTERNAL_ERROR"

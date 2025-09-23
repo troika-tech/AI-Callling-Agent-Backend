@@ -1,0 +1,1137 @@
+FastAPI — version 0.1.0
+Generated: 2025-09-23T05:39:45.825941 UTC
+
+Servers:
+  - https://api-west.millis.ai  (US Region API Gateway)
+  - https://api-eu-west.millis.ai  (EU Region API Gateway)
+
+Endpoints (summary):
+
+/agents
+  GET: Get Agents
+  POST: Create Agent
+
+/agents/{agent_id}
+  GET: Get Agent
+  PUT: Update Agent
+  DELETE: Delete Agent
+
+/agents/{agent_id}/call-histories
+  GET: Get Call Histories
+
+/agents/{agent_id}/duplicate
+  POST: Duplicate Agent
+
+/agents/{agent_id}/embed
+  POST: Set Embed Config
+
+/call-logs
+  GET: List Call Histories
+
+/call-logs/{session_id}
+  GET: Get Call History
+
+/call-logs/{session_id}/recording
+  DELETE: Delete Call Recording
+
+/campaigns
+  POST: Create Campaign
+  GET: Get All Campaigns
+
+/campaigns/{campaign_id}
+  GET: Get Campaign
+  DELETE: Delete Campaign
+
+/campaigns/{campaign_id}/info
+  PUT: Edit Campaign Info
+  GET: Get Campaign Info
+
+/campaigns/{campaign_id}/records
+  POST: Upload Records
+
+/campaigns/{campaign_id}/records/{phone}
+  DELETE: Delete Campaign Record
+
+/campaigns/{campaign_id}/set_caller
+  POST: Set Caller
+
+/campaigns/{campaign_id}/start
+  POST: Start Campaign
+
+/campaigns/{campaign_id}/stop
+  POST: Stop Campaign
+
+/chat/completions
+  POST: Chat Completions
+
+/knowledge/create_file
+  POST: Create File
+
+/knowledge/delete_file
+  POST: Delete File
+
+/knowledge/generate_presigned_url
+  POST: Generate Presigned Url
+
+/knowledge/list_files
+  GET: List Files
+
+/knowledge/set_agent_files
+  POST: Set Agent Files
+
+/phones
+  GET: Get Phones
+
+/phones/import
+  POST: Import Phone Number
+
+/phones/purchase
+  POST: Purchase Phone Number
+
+/phones/{phone}
+  GET: Get Phone
+  DELETE: Delete Phone
+
+/phones/{phone}/agent-config-override
+  POST: Set Agent Config Override
+
+/phones/{phone}/set_agent
+  POST: Set Agent
+
+/phones/{phone}/tags
+  PUT: Update Phone Tags
+
+/register_call
+  POST: Register Call
+
+/register_sip_call
+  POST: Register Sip Call
+
+/sessions/{session_id}/terminate
+  POST: Terminate Call Session
+
+/set_phone_agent
+  POST: Set Phone Agent
+
+/sip
+  POST: Create Sip
+
+/sip/{call_id}
+  DELETE: Delete Sip
+
+/start_outbound_call
+  POST: Start Outbound Call
+
+/user/info
+  GET: Get User Info
+
+/voices
+  GET: Get Voices
+
+/voices/custom
+  GET: Get Custom Voices
+
+/webrtc/offer
+  POST: Create a WebRTC offer
+
+
+---
+
+Schemas (detailed):
+
+Schema: Agent-Input
+  Title: Agent
+  Type: object
+  Required: id, name, config, created_at
+  Properties:
+    - id: string - Id
+    - name: string - Name
+    - config: REF -> #/components/schemas/AgentConfig-Input
+    - created_at: integer - Created At
+
+Schema: Agent-Output
+  Title: Agent
+  Type: object
+  Required: id, name, config, created_at
+  Properties:
+    - id: string - Id
+    - name: string - Name
+    - config: REF -> #/components/schemas/AgentConfig-Output
+    - created_at: integer - Created At
+
+Schema: AgentCallData
+  Title: AgentCallData
+  Type: object
+  Properties:
+    - agent_id: anyOf -> string, null
+    - agent_config: anyOf -> REF #/components/schemas/PartialAgentConfig-Input, null
+    - metadata: anyOf -> object, null
+    - include_metadata_in_prompt: anyOf -> boolean, null
+
+Schema: AgentConfig-Input
+  Title: AgentConfig
+  Type: object
+  Required: prompt, voice
+  Properties:
+    - prompt: string - The primary prompt used to guide the agent's behavior.
+    - voice: allOf -> REF #/components/schemas/Voice
+    - flow: anyOf -> REF #/components/schemas/Flow-Input, null
+    - first_message: anyOf -> string, null
+    - tools: anyOf -> array, null
+    - millis_functions: anyOf -> array, null
+    - app_functions: anyOf -> array, null
+    - custom_llm_websocket: anyOf -> string, null
+    - language: anyOf -> REF #/components/schemas/Language, null
+    - vad_threshold: anyOf -> number, null
+    - llm: anyOf -> REF #/components/schemas/LLM, null
+    - session_timeout: anyOf -> REF #/components/schemas/SessionTimeout, null
+    - session_data_webhook: anyOf -> string, REF #/components/schemas/WebhookConfig, null
+    - privacy_settings: anyOf -> REF #/components/schemas/PrivacySetting, null
+    - custom_vocabulary: anyOf -> REF #/components/schemas/CustomVocabulary, null
+    - extra_prompt_webhook: anyOf -> string, REF #/components/schemas/WebhookConfig, null
+    - switch_language: anyOf -> REF #/components/schemas/SwitchLanguage, null
+    - knowledge_base: anyOf -> REF #/components/schemas/KnowledgeBase, null
+    - speech_to_text: anyOf -> REF #/components/schemas/SpeechToText, null
+    - call_settings: anyOf -> REF #/components/schemas/CallSettings, null
+    - memory: anyOf -> REF #/components/schemas/MemoryConfig, null
+    - timezone: anyOf -> string, null
+
+Schema: AgentConfig-Output
+  Title: AgentConfig
+  Type: object
+  Required: prompt, voice
+  Properties:
+    - prompt: string - The primary prompt used to guide the agent's behavior.
+    - voice: allOf -> REF #/components/schemas/Voice
+    - flow: anyOf -> REF #/components/schemas/Flow-Output, null
+    - first_message: anyOf -> string, null
+    - tools: anyOf -> array, null
+    - millis_functions: anyOf -> array, null
+    - app_functions: anyOf -> array, null
+    - custom_llm_websocket: anyOf -> string, null
+    - language: anyOf -> REF #/components/schemas/Language, null
+    - vad_threshold: anyOf -> number, null
+    - llm: anyOf -> REF #/components/schemas/LLM, null
+    - session_timeout: anyOf -> REF #/components/schemas/SessionTimeout, null
+    - session_data_webhook: anyOf -> string, REF #/components/schemas/WebhookConfig, null
+    - privacy_settings: anyOf -> REF #/components/schemas/PrivacySetting, null
+    - custom_vocabulary: anyOf -> REF #/components/schemas/CustomVocabulary, null
+    - extra_prompt_webhook: anyOf -> string, REF #/components/schemas/WebhookConfig, null
+    - switch_language: anyOf -> REF #/components/schemas/SwitchLanguage, null
+    - knowledge_base: anyOf -> REF #/components/schemas/KnowledgeBase, null
+    - speech_to_text: anyOf -> REF #/components/schemas/SpeechToText, null
+    - call_settings: anyOf -> REF #/components/schemas/CallSettings, null
+    - memory: anyOf -> REF #/components/schemas/MemoryConfig, null
+    - timezone: anyOf -> string, null
+
+Schema: AgentCreate
+  Title: AgentCreate
+  Type: object
+  Required: name, config
+  Properties:
+    - name: string - Name
+    - config: REF -> #/components/schemas/AgentConfig-Input
+
+Schema: AgentTerminateCall
+  Title: AgentTerminateCall
+  Type: object
+  Required: enabled
+  Properties:
+    - enabled: boolean - Specifies whether the agent can end the call autonomously.
+    - instruction: anyOf -> string, null
+    - messages: anyOf -> array, null
+
+Schema: AgentUpdate
+  Title: AgentUpdate
+  Type: object
+  Required: name, config
+  Properties:
+    - name: string - Name
+    - config: REF -> #/components/schemas/PartialAgentConfig-Input
+
+Schema: AppFunction
+  Title: AppFunction
+  Type: object
+  Required: name
+  Properties:
+    - name: string - The name of the app-specific function.
+    - credentials: anyOf -> object, null
+
+Schema: AssistantMessage
+  Title: AssistantMessage
+  Type: object
+  Required: role, content
+  Properties:
+    - role: string enum=['assistant'] - Role
+    - content: string - Content
+    - tool_calls: anyOf -> array, null
+
+Schema: AutoFillResponses
+  Title: AutoFillResponses
+  Type: object
+  Required: response_gap_threshold, messages
+  Properties:
+    - response_gap_threshold: integer - The time (in milliseconds) before the agent uses an auto-fill response.
+    - messages: array of string
+
+Schema: AutoRefillConfig
+  Title: AutoRefillConfig
+  Type: object
+  Required: enabled
+  Properties:
+    - enabled: boolean - Enabled
+    - threshold: anyOf -> number, null
+    - refill_amount: anyOf -> number, null
+
+Schema: BackgroundSetting
+  Title: BackgroundSetting
+  Type: object
+  Required: url
+  Properties:
+    - url: string - URL for the background audio.
+    - volume: anyOf -> number, null
+
+Schema: ButtonState
+  Title: ButtonState
+  Type: object
+  Required: idle, connecting, running
+  Properties:
+    - idle: string - Idle
+    - connecting: string - Connecting
+    - running: string - Running
+
+Schema: CallHistoryResponse
+  Title: CallHistoryResponse
+  Type: object
+  Required: items, pagination
+  Properties:
+    - items: array of REF -> #/components/schemas/fast_api_data__agent__CallHistory
+    - pagination: REF -> #/components/schemas/GenericResponse
+
+Schema: CallRegistrationResponse
+  Title: CallRegistrationResponse
+  Type: object
+  Required: call_id, session_id
+  Properties:
+    - call_id: string - Call Id
+    - session_id: string - Session Id
+
+Schema: CallSettings
+  Title: CallSettings
+  Type: object
+  Properties:
+    - enable_recording: boolean - Specifies whether call recording is enabled.
+    - background: anyOf -> REF #/components/schemas/BackgroundSetting, null
+
+Schema: CallTransfer
+  Title: CallTransfer
+  Type: object
+  Properties:
+    - phone: anyOf -> string, null
+    - phones: anyOf -> array, null
+    - instruction: anyOf -> string, null
+    - messages: anyOf -> array, null
+
+Schema: Campaign
+  Title: Campaign
+  Type: object
+  Required: id, name, status, records, created_at
+  Properties:
+    - id: string - Id
+    - name: string - Name
+    - status: REF -> #/components/schemas/CampaignStatus
+    - records: array of REF -> #/components/schemas/CampaignRecord
+    - created_at: integer - Created At
+
+Schema: CampaignCreate
+  Title: CampaignCreate
+  Type: object
+  Required: name
+  Properties:
+    - name: string - Name
+
+Schema: CampaignEditRequest
+  Title: CampaignEditRequest
+  Type: object
+  Properties:
+    - name: anyOf -> string, null
+    - include_metadata_in_prompt: anyOf -> boolean, null
+
+Schema: CampaignInfo
+  Title: CampaignInfo
+  Type: object
+  Required: id, name, status, created_at
+  Properties:
+    - id: string - Id
+    - name: string - Name
+    - status: REF -> #/components/schemas/CampaignStatus
+    - created_at: integer - Created At
+    - caller: anyOf -> string, null
+    - include_metadata_in_prompt: anyOf -> boolean, null
+
+Schema: CampaignRecord
+  Title: CampaignRecord
+  Type: object
+  Required: phone, metadata, call_status
+  Properties:
+    - phone: string - Phone
+    - metadata: object - Metadata
+    - call_status: REF -> #/components/schemas/third_party_helpers__campaign_helper__CallStatus
+
+Schema: CampaignRecordCreate
+  Title: CampaignRecordCreate
+  Type: object
+  Required: phone
+  Properties:
+    - phone: string - Phone
+    - metadata: anyOf -> object, null
+
+Schema: CampaignStatus
+  Title: CampaignStatus
+  Type: string
+  Enum: ['idle', 'started', 'paused', 'finished', 'failed']
+
+Schema: ChatCompletionData
+  Title: ChatCompletionData
+  Type: object
+  Required: agent, messages
+  Properties:
+    - agent: REF -> #/components/schemas/AgentCallData
+    - messages: array anyOf -> #/components/schemas/UserMessage, #/components/schemas/AssistantMessage, #/components/schemas/ToolMessage
+    - end_of_session: boolean - End Of Session
+
+Schema: CreateFileRequest
+  Title: CreateFileRequest
+  Type: object
+  Required: object_key, description, name, file_type, size
+  Properties:
+    - object_key: string - Object Key
+    - description: string - Description
+    - name: string - Name
+    - file_type: string - File Type
+    - size: integer - Size
+
+Schema: CustomVocabulary
+  Title: CustomVocabulary
+  Type: object
+  Required: keywords
+  Properties:
+    - keywords: object - Custom keywords with their associated weights for ASR prioritization.
+
+Schema: DTMFDial
+  Title: DTMFDial
+  Type: object
+  Properties:
+    - enabled: boolean - Specifies whether the agent can send DTMF dial tones during calls.
+    - instruction: anyOf -> string, null
+
+Schema: DeleteFileRequest
+  Title: DeleteFileRequest
+  Type: object
+  Required: id
+  Properties:
+    - id: string - Id
+
+Schema: EmbedConfig
+  Title: EmbedConfig
+  Type: object
+  Properties:
+    - titles: anyOf -> REF #/components/schemas/ButtonState, null
+    - icons: anyOf -> REF #/components/schemas/ButtonState, null
+    - background: anyOf -> string, null
+    - buttonCss: anyOf -> string, null
+    - size: anyOf -> integer, null
+    - transcript: anyOf -> boolean, null
+    - region: anyOf -> string, null
+
+Schema: FileInfo
+  Title: FileInfo
+  Type: object
+  Required: id, description, name, file_type, size, create_at
+  Properties:
+    - id: string - Id
+    - description: string - Description
+    - name: string - Name
+    - file_type: string - File Type
+    - size: integer - Size
+    - create_at: number - Create At
+
+Schema: Flow-Input
+  Title: Flow
+  Type: object
+  Properties:
+    - user_start_first: anyOf -> boolean, null
+    - interruption: anyOf -> REF #/components/schemas/Interruption, null
+    - response_delay: anyOf -> integer, REF #/components/schemas/ResponseDelay, null
+    - auto_fill_responses: anyOf -> REF #/components/schemas/AutoFillResponses, null
+    - agent_terminate_call: anyOf -> REF #/components/schemas/AgentTerminateCall, null
+    - voicemail: anyOf -> REF #/components/schemas/Voicemail, null
+    - call_transfer: anyOf -> REF #/components/schemas/CallTransfer, null
+    - inactivity_handling: anyOf -> REF #/components/schemas/InactivityHandling, null
+    - dtmf_dial: anyOf -> REF #/components/schemas/DTMFDial, null
+
+Schema: Flow-Output
+  Title: Flow
+  Type: object
+  Properties:
+    - user_start_first: anyOf -> boolean, null
+    - interruption: anyOf -> REF #/components/schemas/Interruption, null
+    - response_delay: anyOf -> integer, REF #/components/schemas/ResponseDelay, null
+    - auto_fill_responses: anyOf -> REF #/components/schemas/AutoFillResponses, null
+    - agent_terminate_call: anyOf -> REF #/components/schemas/AgentTerminateCall, null
+    - voicemail: anyOf -> REF #/components/schemas/Voicemail, null
+    - call_transfer: anyOf -> REF #/components/schemas/CallTransfer, null
+    - inactivity_handling: anyOf -> REF #/components/schemas/InactivityHandling, null
+    - dtmf_dial: anyOf -> REF #/components/schemas/DTMFDial, null
+
+Schema: Function-Output
+  Title: Function
+  Type: object
+  Required: name, description
+  Properties:
+    - name: string - The name of the function.
+    - params: anyOf -> array, null
+    - description: string - A description of the function's purpose.
+    - webhook: anyOf -> string, null
+    - header: anyOf -> object, null
+    - method: anyOf -> string, null
+    - timeout: anyOf -> integer, null
+    - run_after_call: anyOf -> boolean, null
+    - messages: anyOf -> array, null
+    - response_mode: anyOf -> string, null
+    - execute_after_message: anyOf -> boolean, null
+    - exclude_session_id: anyOf -> boolean, null
+    - include_metadata: anyOf -> boolean, null
+
+Schema: GenericResponse
+  Title: GenericResponse
+  Type: object
+  Required: success
+  Properties:
+    - success: boolean - Success
+
+Schema: HTTPError
+  Title: HTTPError
+  Type: object
+  Required: detail
+  Properties:
+    - detail: string - Detail
+
+Schema: HTTPValidationError
+  Title: HTTPValidationError
+  Type: object
+  Properties:
+    - detail: array of REF -> #/components/schemas/ValidationError
+
+Schema: HistorySettings
+  Title: HistorySettings
+  Type: object
+  Properties:
+    - history_message_limit: anyOf -> integer, null
+    - history_tool_result_limit: anyOf -> integer, null
+
+Schema: ImportExotelRequest
+  Title: ImportExotelRequest
+  Type: object
+  Required: country, phone, region, api_key, api_token, sid, subdomain
+  Properties:
+    - country: string - Country
+    - provider: string - Provider
+    - phone: string - Phone
+    - region: string - Region
+    - api_key: string - Api Key
+    - api_token: string - Api Token
+    - sid: string - Sid
+    - subdomain: string - Subdomain
+    - app_id: anyOf -> string, null
+
+Schema: ImportPlivoRequest
+  Title: ImportPlivoRequest
+  Type: object
+  Required: country, phone, region, auth_id, auth_token
+  Properties:
+    - country: string - Country
+    - provider: string - Provider
+    - phone: string - Phone
+    - region: string - Region
+    - auth_id: string - Auth Id
+    - auth_token: string - Auth Token
+
+Schema: ImportTelnyxRequest
+  Title: ImportTelnyxRequest
+  Type: object
+  Required: country, phone, region, api_key
+  Properties:
+    - country: string - Country
+    - provider: string - Provider
+    - phone: string - Phone
+    - region: string - Region
+    - api_key: string - Api Key
+
+Schema: ImportTwilioRequest
+  Title: ImportTwilioRequest
+  Type: object
+  Required: country, phone, region, api_key, api_secret, account_sid
+  Properties:
+    - country: string - Country
+    - provider: string - Provider
+    - phone: string - Phone
+    - region: string - Region
+    - api_key: string - Api Key
+    - api_secret: string - Api Secret
+    - account_sid: string - Account Sid
+
+Schema: ImportVonageRequest
+  Title: ImportVonageRequest
+  Type: object
+  Required: country, phone, region, api_key, api_secret
+  Properties:
+    - country: string - Country
+    - provider: string - Provider
+    - phone: string - Phone
+    - region: string - Region
+    - api_key: string - Api Key
+    - api_secret: string - Api Secret
+    - app_id: anyOf -> string, null
+
+Schema: InactivityHandling
+  Title: InactivityHandling
+  Type: object
+  Required: idle_time, message
+  Properties:
+    - idle_time: number - Time in seconds of user inactivity before the agent prompts the user.
+    - message: string - Message the agent says after the initial idle time.
+
+Schema: InitAgent
+  Title: InitAgent
+  Type: object
+  Properties:
+    - agent_id: anyOf -> string, null
+    - agent_config: anyOf -> REF #/components/schemas/PartialAgentConfig-Input, null
+    - metadata: anyOf -> object, null
+    - include_metadata_in_prompt: anyOf -> boolean, null
+    - from_phone: anyOf -> string, null
+    - to_phone: anyOf -> string, null
+    - session_continuation: anyOf -> REF #/components/schemas/SessionContinuation, null
+
+Schema: Interruption
+  Title: Interruption
+  Type: object
+  Properties:
+    - allowed: anyOf -> boolean, null
+    - keep_interruption_message: anyOf -> boolean, null
+    - first_messsage: anyOf -> boolean, null
+
+Schema: KnowledgeBase
+  Title: KnowledgeBase
+  Type: object
+  Properties:
+    - files: anyOf -> array, null
+    - messages: anyOf -> array, null
+
+Schema: LLM
+  Title: LLM
+  Type: object
+  Required: model
+  Properties:
+    - model: allOf -> REF #/components/schemas/LLMProvider
+    - temperature: number - Temperature setting for response variability.
+    - history_settings: anyOf -> REF #/components/schemas/HistorySettings, null
+
+Schema: LLMProvider
+  Title: LLMProvider
+  Type: string
+  Enum: ['gpt-3.5-turbo', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4-turbo', 'gpt-4o-realtime-preview', 'gpt-4o-mini-realtime-preview', 'gpt-4o', 'gpt-4o-mini', 'llama-3-70b', 'llama-3-1-8b', 'llama-3-1-70b', 'llama-3-1-405b', 'mistral-large-2407', 'l3.1-70b-euryale-v2.2', 'deepseek-v3', 'gpt-5-nano', 'gpt-5-mini', 'llama-3-3-70b']
+
+Schema: Language
+  Title: Language
+  Type: string
+  Enum: ['ln', 'cy', 'wo', 'cs', 'hy', 'nl', 'ceb', 'la', 'en-NZ', 'ss', 'lt', 'ne', 'fy', 'oc', 'yi', 'tt', 'bn', 'fr-CA', 'sw', 'th', 'ms', 'ka', 'pa', 'fi', 'ig', 'af', 'multi', 'eu', 'bs', 'ps', 'en-AU', 'si', 'ff', 'de', 'mt', 'km', 'pl', 'nl-BE', 'fr', 'en-IN', 'no', 'gu', 'lo', 'sk', 'ht', 'tk', 'bg', 'mn', 'su', 'ko', 'it', 'id', 'tl', 'zu', 'pt-BR', 'jv', 'et', 'ca', 'sl', 'ja', 'lb', 'gl', 'zh-TW', 'hi', 'ha', 'th-TH', 'lv', 'ast', 'sq', 'tr', 'ar', 'sv', 'haw', 'tg', 'lg', 'ba', 'mk', 'vi', 'hu', 'el', 'mi', 'en-US', 'kn', 'az', 'he', 'hr', 'ml', 'kk', 'es', 'br', 'sr', 'xh', 'uk', 'as', 'ilo', 'ru', 'gd', 'yo', 'da', 'sa', 'fa', 'es-419', 'bo', 'ur', 'my', 'nn', 'mo', 'so', 'mr', 'tn', 'sd', 'sn', 'uz', 'de-CH', 'fo', 'en-GB', 'zh', 'ro', 'pt', 'or', 'ga', 'ta', 'mg', 'en', 'be', 'am', 'te', 'is']
+
+Schema: MemoryConfig
+  Title: MemoryConfig
+  Type: object
+  Properties:
+    - user_identifier_key: string - The metadata's variable to use for identifying user
+
+Schema: MillisFunction-Input
+  Title: MillisFunction
+  Type: object
+  Required: name, description, data, type
+  Properties:
+    - name: string - The name of the Webform function.
+    - description: string - A description of what the function does.
+    - params: anyOf -> array, null
+    - data: allOf -> REF #/components/schemas/MillisFunctionData
+    - type: string - Type of the function (e.g., webform, webhook).
+    - messages: anyOf -> array, null
+    - response_mode: anyOf -> string, null
+
+Schema: MillisFunction-Output
+  Title: MillisFunction
+  Type: object
+  Required: name, description, data, type
+  Properties:
+    - name: string - The name of the Webform function.
+    - description: string - A description of what the function does.
+    - params: anyOf -> array, null
+    - data: allOf -> REF #/components/schemas/MillisFunctionData
+    - type: string - Type of the function (e.g., webform, webhook).
+    - messages: anyOf -> array, null
+    - response_mode: anyOf -> string, null
+
+Schema: MillisFunctionData
+  Title: MillisFunctionData
+  Type: object
+  Required: param
+  Properties:
+    - param: allOf -> REF #/components/schemas/MillisFunctionParam
+
+Schema: MillisFunctionParam
+  Title: MillisFunctionParam
+  Type: object
+  Required: description, name, required, type
+  Properties:
+    - description: string - A description of the parameter's use in the function.
+    - name: string - The name of the parameter.
+    - required: boolean - Specifies if the parameter is mandatory.
+    - type: string - The data type of the parameter.
+
+Schema: MillisWebRTCOfferRequest
+  Title: MillisWebRTCOfferRequest
+  Type: object
+  Required: offer, agent_id
+  Properties:
+    - offer: REF -> #/components/schemas/WebRTCOffer
+    - agent_id: string - Agent Id
+
+Schema: MillisWebRTCOfferResponse
+  Title: MillisWebRTCOfferResponse
+  Type: object
+  Required: answer
+  Properties:
+    - answer: REF -> #/components/schemas/WebRTCAnswer
+
+Schema: PaginatedCallHistoryResponse
+  Title: PaginatedCallHistoryResponse
+  Type: object
+  Required: histories
+  Properties:
+    - histories: array of REF -> #/components/schemas/fast_api_data__history__CallHistory
+    - next_cursor: anyOf -> number, null
+
+Schema: Param
+  Title: Param
+  Type: object
+  Required: name, required, type, description
+  Properties:
+    - name: string - The parameter name for a function.
+    - required: boolean - Indicates if the parameter is required.
+    - type: string - The data type of the parameter.
+    - description: string - A description of the parameter.
+
+Schema: PartialAgentConfig-Input
+  Title: PartialAgentConfig
+  Type: object
+  Properties:
+    - prompt: anyOf -> string, null
+    - voice: anyOf -> REF #/components/schemas/Voice, null
+    - flow: anyOf -> REF #/components/schemas/Flow-Input, null
+    - first_message: anyOf -> string, null
+    - tools: anyOf -> array, null
+    - millis_functions: anyOf -> array, null
+    - app_functions: anyOf -> array, null
+    - custom_llm_websocket: anyOf -> string, null
+    - language: anyOf -> REF #/components/schemas/Language, null
+    - vad_threshold: anyOf -> number, null
+    - llm: anyOf -> REF #/components/schemas/LLM, null
+    - session_timeout: anyOf -> REF #/components/schemas/SessionTimeout, null
+    - session_data_webhook: anyOf -> string, REF #/components/schemas/WebhookConfig, null
+    - privacy_settings: anyOf -> REF #/components/schemas/PrivacySetting, null
+    - custom_vocabulary: anyOf -> REF #/components/schemas/CustomVocabulary, null
+    - extra_prompt_webhook: anyOf -> string, REF #/components/schemas/WebhookConfig, null
+    - switch_language: anyOf -> REF #/components/schemas/SwitchLanguage, null
+    - knowledge_base: anyOf -> REF #/components/schemas/KnowledgeBase, null
+    - speech_to_text: anyOf -> REF #/components/schemas/SpeechToText, null
+    - call_settings: anyOf -> REF #/components/schemas/CallSettings, null
+    - memory: anyOf -> REF #/components/schemas/MemoryConfig, null
+    - timezone: anyOf -> string, null
+
+Schema: PartialAgentConfig-Output
+  Title: PartialAgentConfig
+  Type: object
+  Properties:
+    - prompt: anyOf -> string, null
+    - voice: anyOf -> REF #/components/schemas/Voice, null
+    - flow: anyOf -> REF #/components/schemas/Flow-Output, null
+    - first_message: anyOf -> string, null
+    - tools: anyOf -> array, null
+    - millis_functions: anyOf -> array, null
+    - app_functions: anyOf -> array, null
+    - custom_llm_websocket: anyOf -> string, null
+    - language: anyOf -> REF #/components/schemas/Language, null
+    - vad_threshold: anyOf -> number, null
+    - llm: anyOf -> REF #/components/schemas/LLM, null
+    - session_timeout: anyOf -> REF #/components/schemas/SessionTimeout, null
+    - session_data_webhook: anyOf -> string, REF #/components/schemas/WebhookConfig, null
+    - privacy_settings: anyOf -> REF #/components/schemas/PrivacySetting, null
+    - custom_vocabulary: anyOf -> REF #/components/schemas/CustomVocabulary, null
+    - extra_prompt_webhook: anyOf -> string, REF #/components/schemas/WebhookConfig, null
+    - switch_language: anyOf -> REF #/components/schemas/SwitchLanguage, null
+    - knowledge_base: anyOf -> REF #/components/schemas/KnowledgeBase, null
+    - speech_to_text: anyOf -> REF #/components/schemas/SpeechToText, null
+    - call_settings: anyOf -> REF #/components/schemas/CallSettings, null
+    - memory: anyOf -> REF #/components/schemas/MemoryConfig, null
+    - timezone: anyOf -> string, null
+
+Schema: PersistantSipCallData
+  Title: PersistantSipCallData
+  Type: object
+  Required: init_agent
+  Properties:
+    - init_agent: REF -> #/components/schemas/InitAgent
+    - region: anyOf -> string, null
+
+Schema: Phone
+  Title: Phone
+  Type: object
+  Required: id, create_at, status
+  Properties:
+    - id: string - Id
+    - agent_id: anyOf -> string, null
+    - create_at: number - Create At
+    - status: string - Status
+    - agent_config_override: anyOf -> REF #/components/schemas/PartialAgentConfig-Output, null
+    - tags: anyOf -> array, null
+
+Schema: PresignedUrlRequest
+  Title: PresignedUrlRequest
+  Type: object
+  Required: filename
+  Properties:
+    - filename: string - Filename
+
+Schema: PresignedUrlResponse
+  Title: PresignedUrlResponse
+  Type: object
+  Required: url, fields
+  Properties:
+    - url: string - Url
+    - fields: object - Fields
+
+Schema: PrivacySetting
+  Title: PrivacySetting
+  Type: object
+  Required: opt_out_data_collection
+  Properties:
+    - opt_out_data_collection: boolean - Indicates if the user wants to opt out of data collection.
+    - do_not_call_detection: boolean - Specifies whether Do Not Call detection is enabled. When enabled, the agent will detect if the user wants to opt-out of future calls or be added to a Do Not Call list.
+
+Schema: PurchasePhoneNumberRequest
+  Title: PurchasePhoneNumberRequest
+  Type: object
+  Required: country, area_code
+  Properties:
+    - country: string - Country
+    - area_code: string - Area Code
+    - street: anyOf -> string, null
+    - city: anyOf -> string, null
+    - state_region: anyOf -> string, null
+    - postal_code: anyOf -> string, null
+
+Schema: ResponseDelay
+  Title: ResponseDelay
+  Type: object
+  Properties:
+    - generic_delay: anyOf -> integer, null
+    - number_input_delay: anyOf -> integer, null
+
+Schema: SessionContinuation
+  Title: SessionContinuation
+  Type: object
+  Properties:
+    - session_id: anyOf -> string, null
+    - messages: array anyOf -> #/components/schemas/UserMessage, #/components/schemas/AssistantMessage, #/components/schemas/ToolMessage
+    - identifier_variable: anyOf -> string, null
+
+Schema: SessionTerminateData
+  Title: SessionTerminateData
+  Type: object
+  Properties:
+    - message: anyOf -> string, null
+
+Schema: SessionTimeout
+  Title: SessionTimeout
+  Type: object
+  Properties:
+    - max_duration: anyOf -> number, null
+    - max_idle: anyOf -> number, null
+    - message: anyOf -> string, null
+
+Schema: SetAgentFilesRequest
+  Title: SetAgentFilesRequest
+  Type: object
+  Required: agent_id, files
+  Properties:
+    - agent_id: string - Agent Id
+    - files: array of string
+    - messages: anyOf -> array, null
+
+Schema: SetAgentRequest
+  Title: SetAgentRequest
+  Type: object
+  Properties:
+    - agent_id: anyOf -> string, null
+
+Schema: SetCallerRequest
+  Title: SetCallerRequest
+  Type: object
+  Required: caller
+  Properties:
+    - caller: string - Caller
+
+Schema: SetPhoneAgentData
+  Title: SetPhoneAgentData
+  Type: object
+  Required: phone
+  Properties:
+    - phone: string - Phone
+    - agent_id: anyOf -> string, null
+
+Schema: SpeechToText
+  Title: SpeechToText
+  Type: object
+  Properties:
+    - provider: anyOf -> REF #/components/schemas/SpeechToTextProvider, null
+    - multilingual: anyOf -> boolean, null
+    - model: anyOf -> string, null
+
+Schema: SpeechToTextProvider
+  Title: SpeechToTextProvider
+  Type: string
+  Enum: ['deepgram', 'gladia', 'talkscriber', 'sarvam']
+
+Schema: StartOutboundCallData
+  Title: StartOutboundCallData
+  Type: object
+  Required: from_phone, to_phone
+  Properties:
+    - from_phone: string - From Phone
+    - to_phone: string - To Phone
+    - agent_id: anyOf -> string, null
+    - agent_config: anyOf -> REF #/components/schemas/PartialAgentConfig-Input, null
+    - metadata: anyOf -> object, null
+    - include_metadata_in_prompt: anyOf -> boolean, null
+    - session_continuation: anyOf -> REF #/components/schemas/SessionContinuation, null
+
+Schema: SwitchLanguage
+  Title: SwitchLanguage
+  Type: object
+  Required: languages
+  Properties:
+    - languages: array of string
+
+Schema: ToolCall
+  Title: ToolCall
+  Type: object
+  Required: id, type, function
+  Properties:
+    - id: string - Id
+    - type: string - Type
+    - function: REF -> #/components/schemas/fast_api_data__messages__Function
+
+Schema: ToolMessage
+  Title: ToolMessage
+  Type: object
+  Required: role, content, tool_call_id
+  Properties:
+    - role: string enum=['tool'] - Role
+    - content: string - Content
+    - tool_call_id: string - Tool Call Id
+
+Schema: TransferOption
+  Title: TransferOption
+  Type: object
+  Required: phone
+  Properties:
+    - phone: string - The phone number to transfer the call to.
+    - description: anyOf -> string, null
+
+Schema: UpdateTagsRequest
+  Title: UpdateTagsRequest
+  Type: object
+  Required: tags
+  Properties:
+    - tags: array of string
+
+Schema: UserInfo
+  Title: UserInfo
+  Type: object
+  Required: user_id, credit, used_credit, auto_refill
+  Properties:
+    - user_id: string - User Id
+    - credit: number - Credit
+    - used_credit: number - Used Credit
+    - auto_refill: REF -> #/components/schemas/AutoRefillConfig
+
+Schema: UserMessage
+  Title: UserMessage
+  Type: object
+  Required: role, content
+  Properties:
+    - role: string enum=['user'] - Role
+    - content: string - Content
+
+Schema: ValidationError
+  Title: ValidationError
+  Type: object
+  Required: loc, msg, type
+  Properties:
+    - loc: array anyOf -> string, integer
+    - msg: string - Message
+    - type: string - Error Type
+
+Schema: Voice
+  Title: Voice
+  Type: object
+  Required: provider, voice_id
+  Properties:
+    - provider: allOf -> REF #/components/schemas/VoiceProvider
+    - voice_id: string - The unique identifier for the voice used by the agent.
+    - model: anyOf -> string, null
+    - settings: anyOf -> object, null
+
+Schema: VoiceOption
+  Title: VoiceOption
+  Type: object
+  Required: provider, voice_id, name
+  Properties:
+    - provider: allOf -> REF #/components/schemas/VoiceProvider
+    - voice_id: string - The unique identifier for the voice used by the agent.
+    - model: anyOf -> string, null
+    - settings: anyOf -> object, null
+    - name: string - Name
+    - preview_url: anyOf -> string, null
+    - language: anyOf -> string, null
+    - category: anyOf -> string, null
+    - multiplier: anyOf -> number, null
+
+Schema: VoiceProvider
+  Title: VoiceProvider
+  Type: string
+  Enum: ['elevenlabs', 'openai', 'cartesia', 'playht', 'deepgram', 'rime', 'neets', 'openai_realtime', 'dubverse', 'orpheus', 'sesame', 'kokoro', 'sarvam', 'hume']
+
+Schema: Voicemail
+  Title: Voicemail
+  Type: object
+  Required: action
+  Properties:
+    - action: allOf -> REF #/components/schemas/VoicemailAction
+    - message: anyOf -> string, null
+    - continue_on_voice_activity: anyOf -> boolean, null
+
+Schema: VoicemailAction
+  Title: VoicemailAction
+  Type: string
+  Enum: ['hangup', 'message']
+
+Schema: WebRTCAnswer
+  Title: WebRTCAnswer
+  Type: object
+  Required: sdp, type
+  Properties:
+    - sdp: string - Sdp
+    - type: string - Type
+
+Schema: WebRTCOffer
+  Title: WebRTCOffer
+  Type: object
+  Required: sdp, type
+  Properties:
+    - sdp: string - Sdp
+    - type: string - Type
+
+Schema: WebhookConfig
+  Title: WebhookConfig
+  Type: object
+  Required: url
+  Properties:
+    - url: string - The webhook endpoint URL.
+    - headers: anyOf -> object, null
+
+Schema: fast_api_data__agent__CallHistory
+  Title: CallHistory
+  Type: object
+  Required: agent_config, duration, ts, chat, chars_used, session_id, cost_breakdown
+  Properties:
+    - agent_id: anyOf -> string, null
+    - agent_config: object - Agent Config
+    - duration: number - Duration
+    - ts: number - Ts
+    - chat: string - Chat
+    - chars_used: integer - Chars Used
+    - session_id: string - Session Id
+    - call_id: anyOf -> string, null
+    - cost_breakdown: array of object
+    - voip: anyOf -> object, null
+    - recording: anyOf -> object, null
+    - metadata: anyOf -> object, null
+    - function_calls: anyOf -> array, null
+    - call_status: anyOf -> string, null
+
+Schema: fast_api_data__data__CallStatus
+  Title: CallStatus
+  Type: string
+  Enum: ['registered', 'queued', 'dispatching', 'provider_queued', 'initiated', 'ringing', 'in-progress', 'completed', 'user-ended', 'agent-ended', 'api-ended', 'voicemail-hangup', 'voicemail-message', 'timeout', 'canceled', 'busy', 'no-answer', 'failed', 'error', 'unknown', 'chat_completion']
+
+Schema: fast_api_data__data__Function
+  Title: Function
+  Type: object
+  Required: name, description
+  Properties:
+    - name: string - The name of the function.
+    - params: anyOf -> array, null
+    - description: string - A description of the function's purpose.
+    - webhook: anyOf -> string, null
+    - header: anyOf -> object, null
+    - method: anyOf -> string, null
+    - timeout: anyOf -> integer, null
+    - run_after_call: anyOf -> boolean, null
+    - messages: anyOf -> array, null
+    - response_mode: anyOf -> string, null
+    - execute_after_message: anyOf -> boolean, null
+    - exclude_session_id: anyOf -> boolean, null
+    - include_metadata: anyOf -> boolean, null
+
+Schema: fast_api_data__history__CallHistory
+  Title: CallHistory
+  Type: object
+  Properties:
+    - agent_id: anyOf -> string, null
+    - agent_config: anyOf -> object, null
+    - duration: anyOf -> number, null
+    - ts: anyOf -> number, null
+    - chat: anyOf -> string, null
+    - chars_used: anyOf -> integer, null
+    - session_id: anyOf -> string, null
+    - call_id: anyOf -> string, null
+    - cost_breakdown: anyOf -> array, null
+    - voip: anyOf -> object, null
+    - recording: anyOf -> object, null
+    - metadata: anyOf -> object, null
+    - function_calls: anyOf -> array, null
+    - call_status: anyOf -> REF #/components/schemas/fast_api_data__data__CallStatus, null
+    - campaign_id: anyOf -> string, null
+
+Schema: fast_api_data__messages__Function
+  Title: Function
+  Type: object
+  Required: name, arguments
+  Properties:
+    - name: string - Name
+    - arguments: string - Arguments
+
+Schema: third_party_helpers__campaign_helper__CallStatus
+  Title: CallStatus
+  Type: string
+  Enum: ['not_started', 'started', 'finished', 'failed']
