@@ -19,6 +19,8 @@ This document outlines the hardened admin API implementation with security, vali
 - **List Phones**: `page` (>=1), `pageSize` (1-100), `search` (<=100 chars)
 - **Import Phones**: `phones` (non-empty array), each phone (1-20 chars)
 - **Set Agent**: `phone` (1-20 chars), `agentId` (1-50 chars)
+- **Assign User Agent**: `agentId` (1-50 chars, required string)
+- **Unassign User Agent**: `agentId` path parameter (1-50 chars)
 - **Update Tags**: `phone` (1-20 chars), `tags` (array), each tag (1-30 chars)
 - **Approve Campaign**: `id` (1-50 chars), `approve` (boolean), `reason` (<=500 chars)
 - **Call Logs**: pagination, `from`/`to` ISO dates, `status` (<=20 chars)
@@ -69,6 +71,14 @@ PATCH  /api/v1/admin/phones/:phone/tags        # Update phone tags
 POST   /api/v1/admin/campaigns/:id/approve     # Approve/reject campaign
 GET    /api/v1/admin/call_logs                 # List call logs with filtering
 GET    /api/v1/admin/sessions                  # List sessions with filtering
+GET    /api/v1/admin/users                     # List users with pagination/search/role filter
+GET    /api/v1/admin/users/:id                 # Retrieve a single user
+POST   /api/v1/admin/users                     # Create a user (admin or regular)
+PATCH  /api/v1/admin/users/:id                # Update user profile, role, or password
+POST   /api/v1/admin/users/:id/agents         # Assign an agent to a user (idempotent)
+DELETE /api/v1/admin/users/:id/agents/:agentId # Unassign an agent from a user
+GET    /api/v1/admin/agents                    # List agents with assignment status
+DELETE /api/v1/admin/users/:id               # Remove a user (self-delete blocked)
 ```
 
 ## Environment Variables
@@ -150,3 +160,7 @@ Postman collection (`postman/Millis SaaS Admin APIs.postman_collection.json`) in
 3. Configure backups
 4. Publish OpenAPI/Swagger docs
 5. Integrate performance and log aggregation tooling
+
+
+
+

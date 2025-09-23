@@ -27,6 +27,13 @@ const generateToken = (user) => {
 };
 
 const mockMillisResponses = {
+  listAgents: {
+    items: [
+      { id: 'agent_123', label: 'Outbound Agent' },
+      { id: 'agent_456', label: 'Inbound Agent' }
+    ],
+    total: 2
+  },
   listPhones: {
     items: [
       { id: 'phone1', number: '+14155550100', tags: ['vip'], agentId: 'agent1' },
@@ -53,6 +60,7 @@ const mockMillisResponses = {
 };
 
 const createMockMillisClient = () => ({
+  listAgents: jest.fn().mockResolvedValue(mockMillisResponses.listAgents),
   listPhones: jest.fn().mockResolvedValue(mockMillisResponses.listPhones),
   importPhones: jest.fn().mockResolvedValue(mockMillisResponses.importPhones),
   setPhoneAgent: jest.fn().mockResolvedValue(mockMillisResponses.setPhoneAgent),

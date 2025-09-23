@@ -12,9 +12,11 @@ const authRoutes = require('./routes/auth');
 const meRoutes = require('./routes/me');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
+const adminAgentsRoutes = require('./routes/admin/agents');
 const adminPhonesRoutes = require('./routes/admin/phones');
 const adminCampaignsRoutes = require('./routes/admin/campaigns');
 const adminCallsRoutes = require('./routes/admin/calls');
+const adminUsersRoutes = require('./routes/admin/users');
 
 function resolveClientIp(req) {
   return req.ip
@@ -88,8 +90,10 @@ function createApp() {
 
   const adminRouter = express.Router();
   adminRouter.use(adminRoutes);
+  adminRouter.use('/agents', adminAgentsRoutes);
   adminRouter.use('/phones', adminPhonesRoutes);
   adminRouter.use('/campaigns', adminCampaignsRoutes);
+  adminRouter.use('/users', adminUsersRoutes);
   adminRouter.use('/', adminCallsRoutes);
 
   app.use("/api/v1/admin", adminLimiter, adminRouter);

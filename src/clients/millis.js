@@ -5,7 +5,7 @@ const millis = axios.create({
   baseURL: cfg.millis.baseURL,
   timeout: 10000,
   headers: {
-    Authorization: `Bearer ${cfg.millis.apiKey}`,
+    Authorization: cfg.millis.apiKey,
     'Content-Type': 'application/json'
   }
 });
@@ -30,12 +30,15 @@ const handleMillisError = (error) => {
   throw new Error(`Millis API connection error: ${error.message}`);
 };
 
-const apiCall = (method, url, ...args) => 
+const apiCall = (method, url, ...args) =>
   millis[method](url, ...args)
     .then(r => r.data)
     .catch(handleMillisError);
 
 module.exports = {
+  // Agents
+  listAgents: (params) => apiCall('get', '/agents', { params }),
+
   // Phones
   listPhones: (params) => apiCall('get', '/phones', { params }),
   importPhones: (payload) => apiCall('post', '/phones/import', payload),
