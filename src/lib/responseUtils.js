@@ -1,10 +1,18 @@
 // Standardize response shapes for list endpoints
 const standardizeListResponse = (data, page = 1, pageSize = 50) => {
+  // Handle different response formats from Millis:
+  // - Array directly: [...]
+  // - Paginated with items: {items: [...], total: X}
+  // - Paginated with histories (call-logs): {histories: [...], next_cursor: X}
+  const items = Array.isArray(data)
+    ? data
+    : (data.items || data.histories || []);
+
   return {
-    items: data.items || [],
+    items,
     page: parseInt(page) || 1,
     pageSize: parseInt(pageSize) || 50,
-    total: data.total || (data.items ? data.items.length : 0)
+    total: data.total || items.length
   };
 };
 

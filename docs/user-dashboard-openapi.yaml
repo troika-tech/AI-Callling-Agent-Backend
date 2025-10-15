@@ -1,0 +1,615 @@
+openapi: 3.1.0
+info:
+  title: User Dashboard Read-Only API
+  version: 1.0.0
+  description: >-
+    Contracts for the read-only user dashboard. All endpoints require cookie-based
+    authentication unless noted. Non-GET requests to business resources return 403.
+servers:
+  - url: https://api.staging.millis-saas.com
+    description: Staging
+  - url: https://api.millis-saas.com
+    description: Production
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        retryAfter:
+          type: integer
+          description: Retry delay in seconds when applicable.
+      required:
+        - error
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: u_123
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [owner, admin, user]
+      required: [id, email, name, role]
+    BillingSnapshot:
+      type: object
+      properties:
+        credit:
+          type: number
+          format: float
+          example: 120.5
+        used_credit:
+          type: number
+          format: float
+          example: 35.0
+        auto_refill:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            threshold:
+              type: number
+            refill_amount:
+              type: number
+          required: [enabled, threshold, refill_amount]
+      required: [credit, used_credit, auto_refill]
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+          example: ag_1
+        name:
+          type: string
+        voice_label:
+          type: string
+        language:
+          type: string
+          example: en
+        created_at:
+          type: integer
+          format: int64
+          description: Unix epoch seconds (UTC).
+      required: [id, name, voice_label, language, created_at]
+    CallLogItem:
+      type: object
+      properties:
+        session_id:
+          type: string
+        ts:
+          type: integer
+          format: int64
+          description: Unix epoch seconds (UTC).
+        agent:
+          $ref: '#/components/schemas/CallLogItemAgent'
+        masked_phone:
+          type: string
+          example: +1••• ••42
+        duration_sec:
+          type: integer
+        status:
+          type: string
+          enum: [completed, failed, live, abandoned]
+        cost:
+          type: number
+          format: float
+      required: [session_id, ts, agent, masked_phone, duration_sec, status, cost]
+    CallLogItemAgent:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required: [id, name]
+    CostLineItem:
+      type: object
+      properties:
+        item:
+          type: string
+        cost:
+          type: number
+          format: float
+      required: [item, cost]
+    CallDetail:
+      type: object
+      properties:
+        session_id:
+          type: string
+        agent:
+          $ref: '#/components/schemas/CallLogItemAgent'
+        duration_sec:
+          type: integer
+        status:
+          type: string
+        cost_breakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/CostLineItem'
+        chat:
+          type: string
+        recording:
+          type: object
+          properties:
+            available:
+              type: boolean
+          required: [available]
+      required: [session_id, agent, duration_sec, status, cost_breakdown, chat, recording]
+    Phone:
+      type: object
+      properties:
+        id:
+          type: string
+          example: +1555••••1234
+        agent_id:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+        tags:
+          type: array
+          items:
+            type: string
+      required: [id, status, created_at, tags]
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate a user
+      description: Sets an HTTP-only session cookie on success.
+      operationId: authLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+              required: [email, password]
+            example:
+              email: user@acme.com
+              password: hunter2!
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              description: Session cookie with HttpOnly, Secure, SameSite=None.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                required: [user]
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security: []
+  /api/auth/me:
+    get:
+      summary: Current authenticated user
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Authenticated user profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                required: [user]
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/me:
+    get:
+      summary: Dashboard overview for current user
+      description: Aggregates local profile with Millis billing data. Responses cached ~15 seconds per user.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User profile with billing snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      role:
+                        type: string
+                    required: [id, name, role]
+                  billing:
+                    $ref: '#/components/schemas/BillingSnapshot'
+                required: [user, billing]
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/agents:
+    get:
+      summary: List agents
+      description: Cached 30-60 seconds per tenant. Passthrough from Millis `/agents` with light mapping.
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: Optional pagination cursor.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Agent'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/call-logs:
+    get:
+      summary: Paginated call log list
+      description: Proxies Millis `/call-logs`, normalizing statuses to supported enum, masking PII, and enforcing rate limits.
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+          description: ISO-8601 UTC timestamp inclusive lower bound.
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+          description: ISO-8601 UTC timestamp exclusive upper bound.
+        - in: query
+          name: agent_id
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [completed, failed, live, abandoned]
+        - in: query
+          name: cursor
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+      responses:
+        '200':
+          description: Call logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CallLogItem'
+                  next_cursor:
+                    type: string
+                  has_more:
+                    type: boolean
+                required: [items, has_more]
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/call-logs/{sessionId}:
+    get:
+      summary: Call detail
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Call detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallDetail'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/call-logs/{sessionId}/recording:
+    get:
+      summary: Call recording stream
+      description: Streams audio via backend proxy with Range support. Never exposes upstream URL.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Audio stream
+          headers:
+            Accept-Ranges:
+              schema:
+                type: string
+              example: bytes
+          content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Recording unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/campaigns:
+    get:
+      summary: List campaigns
+      description: Cached 15-30 seconds per tenant. Only includes fields needed for dashboard list.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Campaign summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    status:
+                      type: string
+                    channel:
+                      type: string
+                    created_at:
+                      type: integer
+                      format: int64
+                  required: [id, name, status, channel, created_at]
+  /api/campaigns/{id}:
+    get:
+      summary: Campaign detail
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Campaign detail payload
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/campaigns/{id}/info:
+    get:
+      summary: Campaign info (Millis passthrough)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Campaign info payload
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/phones:
+    get:
+      summary: List phone numbers
+      description: Passthrough from Millis `/phones` with masking applied to phone numbers.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Phone inventory
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Phone'
+  /api/phones/{phoneId}:
+    get:
+      summary: Phone detail
+      description: Provides masked identifiers and related agent info.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: phoneId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Phone detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Phone'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/exports/calls.csv:
+    get:
+      summary: Export call logs CSV
+      description: Streams masked call data constrained by server-side date span and row limits.
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: agent_id
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [completed, failed, live, abandoned]
+      responses:
+        '200':
+          description: CSV export
+          headers:
+            Content-Type:
+              schema:
+                type: string
+              example: text/csv; charset=utf-8
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Validation error (range too large, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Export rate limit reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+x-behavioral-rules:
+  nonGetForbidden: true
+  validation: 'All requests validated using zod-style schemas with descriptive 400 responses.'
+  caching:
+    - endpoint: /api/me
+      ttlSeconds: 15
+    - endpoint: /api/agents
+      ttlSeconds: 30
+    - endpoint: /api/campaigns
+      ttlSeconds: 30
+  observability:
+    correlationIdHeader: X-Request-ID
+    metrics: ['upstream_latency_ms', 'cache_hit']
+  security:
+    cors: 'Allowlist per tenant dashboard domain'
+    helmet: true
+    cookies: 'HttpOnly, Secure, SameSite=None'

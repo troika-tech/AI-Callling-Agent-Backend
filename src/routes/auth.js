@@ -4,15 +4,53 @@ const createError = require('http-errors');
 
 const User = require('../models/User');
 const { hashPassword, verifyPassword } = require('../lib/password');
-const { signAccess, signRefresh, verifyToken } = require('../lib/jwt');
+const {
+  SESSION_COOKIE_NAME,
+  REFRESH_COOKIE_NAME,
+  createSession,
+  findSessionByRefreshToken,
+  rotateSession,
+  revokeSession,
+  getSessionCookieOptions,
+  getRefreshCookieOptions
+} = require('../lib/sessions');
+const { resolveClientIp } = require('../lib/request');
+const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-/**
- * POST /api/v1/auth/signup
- * Creates a user (role defaults to 'user').
- * To create an admin, set role in DB manually or add a protected admin-creation route later.
- */
+function buildUserResponse(user) {
+  return {
+    id: user._id.toString(),
+    email: user.email,
+    name: user.name,
+    role: user.role
+  };
+}
+
+function setAuthCookies(res, accessToken, refreshToken) {
+  const sessionOptions = getSessionCookieOptions();
+  const refreshOptions = getRefreshCookieOptions();
+
+  res.cookie(SESSION_COOKIE_NAME, accessToken, sessionOptions);
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshOptions);
+}
+
+function clearAuthCookies(res) {
+  const sessionOptions = getSessionCookieOptions();
+  const refreshOptions = getRefreshCookieOptions();
+
+  res.clearCookie(SESSION_COOKIE_NAME, { ...sessionOptions, maxAge: 0 });
+  res.clearCookie(REFRESH_COOKIE_NAME, { ...refreshOptions, maxAge: 0 });
+}
+
+function requestContext(req) {
+  return {
+    userAgent: req.headers['user-agent'],
+    ipAddress: resolveClientIp(req)
+  };
+}
+
 router.post('/signup',
   body('email').isEmail(),
   body('password').isLength({ min: 8 }),
@@ -23,26 +61,19 @@ router.post('/signup',
       if (!errors.isEmpty()) throw createError(400, { errors: errors.array() });
 
       const { email, password, name } = req.body;
-
       const exists = await User.findOne({ email });
       if (exists) throw createError(409, 'Email already registered');
 
       const passwordHash = await hashPassword(password);
       const user = await User.create({ email, name, passwordHash, role: 'user' });
 
-      const access = signAccess({ sub: user._id.toString(), email: user.email, role: user.role });
-      const refresh = signRefresh({ sub: user._id.toString() });
+      const { accessToken, refreshToken } = await createSession(user, requestContext(req));
+      setAuthCookies(res, accessToken, refreshToken);
 
-      res.status(201).json({
-        user: { id: user._id, email: user.email, name: user.name, role: user.role },
-        tokens: { access, refresh }
-      });
+      res.status(201).json({ user: buildUserResponse(user) });
     } catch (e) { next(e); }
   });
 
-/**
- * POST /api/v1/auth/login
- */
 router.post('/login',
   body('email').isEmail(),
   body('password').isLength({ min: 8 }),
@@ -58,26 +89,59 @@ router.post('/login',
       const ok = await verifyPassword(password, user.passwordHash);
       if (!ok) throw createError(401, 'Invalid credentials');
 
-      const access = signAccess({ sub: user._id.toString(), email: user.email, role: user.role });
-      const refresh = signRefresh({ sub: user._id.toString() });
+      const { accessToken, refreshToken } = await createSession(user, requestContext(req));
+      setAuthCookies(res, accessToken, refreshToken);
 
-      res.json({ tokens: { access, refresh }, user: { id: user._id, email: user.email, role: user.role, name: user.name } });
+      res.json({ user: buildUserResponse(user) });
     } catch (e) { next(e); }
   });
 
-/**
- * POST /api/v1/auth/refresh
- */
 router.post('/refresh', async (req, res, next) => {
   try {
-    const token = req.body?.refreshToken;
-    if (!token) throw createError(400, 'Missing refreshToken');
-    const payload = verifyToken(token);
-    const user = await User.findById(payload.sub).lean();
-    if (!user) throw createError(401, 'Invalid refresh token');
-    const access = signAccess({ sub: user._id.toString(), email: user.email, role: user.role });
-    res.json({ access });
-  } catch (e) { next(createError(401, 'Invalid refresh token')); }
+    const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME] || req.body?.refreshToken;
+    console.log('Refresh attempt - has refresh token:', !!refreshToken);
+    
+    if (!refreshToken) throw createError(400, 'Missing refresh token');
+
+    const context = requestContext(req);
+    const session = await findSessionByRefreshToken(refreshToken, context);
+    console.log('Refresh attempt - session found:', !!session);
+    
+    if (!session) throw createError(401, 'Invalid refresh token');
+
+    const user = await User.findById(session.user);
+    if (!user) {
+      await revokeSession(session);
+      throw createError(401, 'Invalid refresh token');
+    }
+
+    const { accessToken, refreshToken: rotatedRefreshToken } = await rotateSession(session, user, context);
+    setAuthCookies(res, accessToken, rotatedRefreshToken);
+
+    console.log('Refresh successful for user:', user.email);
+    res.json({ user: buildUserResponse(user) });
+  } catch (e) { 
+    console.log('Refresh failed:', e.message);
+    next(e); 
+  }
+});
+
+router.post('/logout', requireAuth, async (req, res, next) => {
+  try {
+    if (req.authSession) {
+      await revokeSession(req.authSession);
+    } else if (req.cookies?.[REFRESH_COOKIE_NAME]) {
+      const session = await findSessionByRefreshToken(req.cookies[REFRESH_COOKIE_NAME], requestContext(req));
+      if (session) await revokeSession(session);
+    }
+
+    clearAuthCookies(res);
+    res.status(204).send();
+  } catch (e) { next(e); }
+});
+
+router.get('/me', requireAuth, (req, res) => {
+  res.json({ user: req.user });
 });
 
 module.exports = router;

@@ -3,9 +3,11 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
+const cookieParser = require("cookie-parser");
 
 const cfg = require("./config");
 const { connectMongo } = require("./db");
+const { resolveClientIp } = require("./lib/request");
 
 const health = require("./routes/health");
 const authRoutes = require('./routes/auth');
@@ -17,20 +19,14 @@ const adminPhonesRoutes = require('./routes/admin/phones');
 const adminCampaignsRoutes = require('./routes/admin/campaigns');
 const adminCallsRoutes = require('./routes/admin/calls');
 const adminUsersRoutes = require('./routes/admin/users');
-
-function resolveClientIp(req) {
-  return req.ip
-    || req.headers['x-forwarded-for']?.split(',')[0]
-    || req.connection?.remoteAddress
-    || req.socket?.remoteAddress
-    || null;
-}
+const dashboardRoutes = require('./routes/dashboard');
 
 function createApp() {
   const app = express();
 
   app.set('trust proxy', 1);
 
+  app.use(cookieParser());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -97,6 +93,15 @@ function createApp() {
   adminRouter.use('/', adminCallsRoutes);
 
   app.use("/api/v1/admin", adminLimiter, adminRouter);
+  app.use("/api", (req, res, next) => {
+    if (req.path.startsWith("/v1/")) {
+      return next();
+    }
+    generalLimiter(req, res, (err) => {
+      if (err) return next(err);
+      dashboardRoutes(req, res, next);
+    });
+  });
 
   app.use((_req, res) => res.status(404).json({ error: "Not found" }));
 

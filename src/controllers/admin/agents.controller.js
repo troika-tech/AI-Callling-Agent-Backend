@@ -23,11 +23,16 @@ exports.list = asyncHandler(async (req, res) => {
   if (search) params.search = search;
 
   const data = await millis.listAgents(params);
-  
-  // Millis API returns data as a direct array, not wrapped in an object
-  const agentItems = Array.isArray(data) ? data : [];
-  
-  const agentIds = agentItems.map(agent => agent.id).filter(Boolean);
+
+  const rawItems = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data)
+      ? data
+      : [];
+
+  const total = typeof data?.total === 'number' ? data.total : rawItems.length;
+
+  const agentIds = rawItems.map(agent => agent.id).filter(Boolean);
 
   const assignments = agentIds.length
     ? await AgentAssignment.find({ agentId: { $in: agentIds } }).lean()
@@ -35,12 +40,12 @@ exports.list = asyncHandler(async (req, res) => {
 
   const assignmentsByAgent = new Map(assignments.map(assignment => [assignment.agentId, assignment]));
 
-  const items = agentItems.map(agent => ({
+  const items = rawItems.map(agent => ({
     ...agent,
     assignedUserId: assignmentsByAgent.get(agent.id)?.user?.toString() || null
   }));
 
-  const response = standardizeListResponse({ items, total: agentItems.length }, pageNumber, pageSizeNumber);
+  const response = standardizeListResponse({ items, total }, pageNumber, pageSizeNumber);
   res.json(response);
 });
 

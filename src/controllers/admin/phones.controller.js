@@ -15,20 +15,24 @@ exports.list = asyncHandler(async (req, res) => {
     pageSize: pageSizeNumber,
     search: searchTerm
   });
-  
-  if (Array.isArray(data.items)) {
-    for (const p of data.items) {
-      await Phone.updateOne({ phoneId: p.id }, {
-        $set: {
-          number: p.number,
-          tags: p.tags || [],
-          agentId: p.agentId || null,
-          meta: p
-        }
-      }, { upsert: true });
-    }
+
+  // Millis returns array directly, not {items: [...]}
+  const phones = Array.isArray(data) ? data : (data.items || []);
+
+  // Sync phones to local database
+  for (const p of phones) {
+    await Phone.updateOne({ phoneId: p.id }, {
+      $set: {
+        number: p.id, // Millis uses 'id' as the phone number
+        tags: p.tags || [],
+        agentId: p.agent_id || null, // Millis uses snake_case
+        status: p.status || 'active',
+        createdAt: p.create_at ? new Date(p.create_at * 1000) : new Date(),
+        meta: p
+      }
+    }, { upsert: true });
   }
-  
+
   const response = standardizeListResponse(data, pageNumber, pageSizeNumber);
   res.json(response);
 });
