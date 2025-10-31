@@ -19,8 +19,8 @@ if (!process.env.JWT_SECRET && env === 'production') {
 const cfg = {
   env,
   port: Number(process.env.PORT || 5000),
-  // CRITICAL: MONGO_URL must be set via environment variable
-  mongoUrl: process.env.MONGO_URL,
+  // CRITICAL: Never hardcode credentials - use environment variables only
+  mongoUrl: process.env.MONGO_URL || (env === 'production' ? null : 'mongodb+srv://troikatechpratik2_db_user:SxqFavSwFh9P6L4q@calling-agent.23zrltl.mongodb.net/millis_saas?retryWrites=true&w=majority&appName=calling-agent'),
   corsOrigins: (process.env.CORS_ORIGINS || '*')
     .split(',')
     .map(s => s.trim())
