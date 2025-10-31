@@ -6,7 +6,7 @@ const AuthSessionSchema = new Schema({
   refreshTokenHash: { type: String, required: true },
   userAgentHash: { type: String },
   ipHash: { type: String },
-  expiresAt: { type: Date, required: true, index: true },
+  expiresAt: { type: Date, required: true },
   lastUsedAt: { type: Date, default: Date.now },
   revokedAt: { type: Date }
 }, { timestamps: true });

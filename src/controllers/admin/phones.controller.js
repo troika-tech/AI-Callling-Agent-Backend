@@ -39,8 +39,81 @@ exports.list = asyncHandler(async (req, res) => {
 
 exports.import = asyncHandler(async (req, res) => {
   const payload = req.body;
-  const result = await millis.importPhones(payload);
-  res.status(202).json({ message: 'Import queued', result });
+  
+  console.log('Importing phones to Millis:', payload);
+  
+  try {
+    // Handle both bulk import (phones array) and single Exotel import
+    let millisPayload = payload;
+    
+    // If it's a single Exotel phone import, format it properly
+    if (payload.phone && !payload.phones) {
+      millisPayload = {
+        phone: payload.phone,
+        country: payload.country || 'IN',
+        region: payload.region || 'IN',
+        provider: payload.provider || 'exotel',
+        api_key: payload.api_key || '',
+        api_token: payload.api_token || '',
+        sid: payload.sid || '',
+        subdomain: payload.subdomain || ''
+      };
+    }
+    
+    // Call Millis API to import phones
+    const result = await millis.importPhones(millisPayload);
+    
+    console.log('Millis import result:', result);
+    
+    // Store the phone record locally for tracking
+    const phoneNumber = payload.phone || payload.phones?.[0];
+    if (phoneNumber) {
+      await Phone.updateOne(
+        { phoneId: phoneNumber },
+        { 
+          $set: { 
+            number: phoneNumber,
+            tags: [],
+            status: 'importing',
+            importedAt: new Date(),
+            provider: payload.provider || 'exotel',
+            metadata: payload
+          }
+        }, 
+        { upsert: true }
+      );
+    }
+    
+    // Create audit log
+    await createAuditLog(AdminAudit, {
+      actor: req.user._id,
+      action: 'import_phones',
+      target: phoneNumber || 'phones',
+      targetType: payload.phone ? 'phone' : 'bulk',
+      details: { 
+        count: payload.phones?.length || 1,
+        provider: payload.provider || 'exotel',
+        phone: phoneNumber
+      },
+      millisResponse: result,
+      ...getClientInfo(req)
+    });
+    
+    res.status(202).json({ 
+      success: true,
+      message: 'Phone imported to Millis successfully', 
+      result 
+    });
+  } catch (error) {
+    console.error('Error importing phone to Millis:', error);
+    
+    // Return a more user-friendly error message
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Failed to import phone to Millis',
+      details: error.response?.data || error.data
+    });
+  }
 });
 
 exports.setAgent = asyncHandler(async (req, res) => {

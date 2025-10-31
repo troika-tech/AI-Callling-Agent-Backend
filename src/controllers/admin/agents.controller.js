@@ -32,9 +32,16 @@ exports.list = asyncHandler(async (req, res) => {
 
   const total = typeof data?.total === 'number' ? data.total : rawItems.length;
 
-  const agentIds = rawItems.map(agent => agent.id).filter(Boolean);
+  // Security: Validate agentIds before using in query to prevent NoSQL injection
+  const agentIds = rawItems
+    .map(agent => agent.id)
+    .filter(id => {
+      if (!id || typeof id !== 'string') return false;
+      // Validate agent ID format (alphanumeric with dashes/underscores, max 50 chars)
+      return /^[a-zA-Z0-9_-]{1,50}$/.test(id);
+    });
 
-  const assignments = agentIds.length
+  const assignments = agentIds.length > 0
     ? await AgentAssignment.find({ agentId: { $in: agentIds } }).lean()
     : [];
 

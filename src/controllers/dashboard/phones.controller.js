@@ -41,6 +41,11 @@ const list = asyncHandler(async (req, res, next) => {
     const items = rawItems.map(normalizePhone).filter(Boolean);
     res.json(standardizeListResponse({ items, total }, page, pageSize));
   } catch (error) {
+    // If Millis API fails, return empty results instead of failing the request
+    if (error.status === 500 || error.status === 502 || error.status === 503) {
+      console.warn(`Millis API unavailable for phones list - returning empty results: ${error.message}`);
+      return res.json(standardizeListResponse({ items: [], total: 0 }, page, pageSize));
+    }
     next(error);
   }
 });

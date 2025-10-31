@@ -1,56 +1,85 @@
 const { Schema, model } = require('mongoose');
 
 const AdminAuditSchema = new Schema({
-  actor: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'User', 
+  actor: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
-    index: true 
+    index: true
   },
-  action: { 
-    type: String, 
+
+  action: {
+    type: String,
     required: true,
-    enum: ['set_agent', 'update_tags', 'approve_campaign', 'reject_campaign'],
-    index: true 
+    enum: [
+      // Phone management
+      'set_agent', 'update_tags', 'import_phones',
+      // Campaign management
+      'approve_campaign', 'reject_campaign', 'pause_campaign', 'delete_campaign',
+      // User management
+      'create_user', 'suspend_user', 'activate_user', 'delete_user', 'update_subscription',
+      // System
+      'system_config_change'
+    ],
+    index: true
   },
-  target: { 
-    type: String, 
+
+  target: {
+    type: String,
     required: true,
-    index: true 
-  }, // phone number, campaign ID, etc.
-  targetType: { 
-    type: String, 
+    index: true
+  }, // User ID, phone number, campaign ID, etc.
+
+  targetType: {
+    type: String,
     required: true,
-    enum: ['phone', 'campaign'],
-    index: true 
+    enum: ['phone', 'campaign', 'user', 'system'],
+    index: true
   },
-  diff: { 
+
+  // Additional details about the action
+  details: {
     type: Schema.Types.Mixed,
-    default: null 
+    default: {}
+  }, // Action-specific details
+
+  diff: {
+    type: Schema.Types.Mixed,
+    default: null
   }, // before/after values
-  reason: { 
+
+  reason: {
     type: String,
     maxlength: 500
   },
-  millisResponse: { 
+
+  millisResponse: {
     type: Schema.Types.Mixed,
-    default: null 
+    default: null
   },
-  ipAddress: { 
+
+  ipAddress: {
     type: String,
     maxlength: 45 // IPv6 max length
   },
-  userAgent: { 
+
+  userAgent: {
     type: String,
     maxlength: 500
   }
-}, { 
+}, {
   timestamps: true,
   indexes: [
     { actor: 1, createdAt: -1 },
     { action: 1, createdAt: -1 },
-    { target: 1, targetType: 1 }
+    { target: 1, targetType: 1 },
+    { targetType: 1, createdAt: -1 }
   ]
 });
+
+// Helper method to create audit log
+AdminAuditSchema.statics.log = async function(logData) {
+  return await this.create(logData);
+};
 
 module.exports = model('AdminAudit', AdminAuditSchema);

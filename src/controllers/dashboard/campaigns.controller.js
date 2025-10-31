@@ -12,6 +12,7 @@ function normalizeCampaign(campaign) {
   return {
     id: campaign.id || campaign.campaign_id || null,
     name: campaign.name || campaign.title || null,
+    caller: campaign.caller || campaign.phone_number || campaign.assigned_phone_number || null,
     status: normalizeStatus(campaign.status),
     created_at: campaign.created_at || campaign.createdAt || null
   };
@@ -33,6 +34,11 @@ const list = asyncHandler(async (req, res, next) => {
     const items = rawItems.map(normalizeCampaign).filter(Boolean);
     res.json(standardizeListResponse({ items, total }, page, pageSize));
   } catch (error) {
+    // If Millis API fails, return empty results instead of failing the request
+    if (error.status === 500 || error.status === 502 || error.status === 503) {
+      console.warn(`Millis API unavailable for campaigns list - returning empty results: ${error.message}`);
+      return res.json(standardizeListResponse({ items: [], total: 0 }, page, pageSize));
+    }
     next(error);
   }
 });

@@ -15,7 +15,7 @@ const {
   getRefreshCookieOptions
 } = require('../lib/sessions');
 const { resolveClientIp } = require('../lib/request');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -24,7 +24,14 @@ function buildUserResponse(user) {
     id: user._id.toString(),
     email: user.email,
     name: user.name,
-    role: user.role
+    phone: user.phone,
+    role: user.role,
+    status: user.status,
+    subscription: {
+      plan: user.subscription?.plan || 'basic',
+      call_minutes_allocated: user.subscription?.call_minutes_allocated || 0,
+      call_minutes_used: user.subscription?.call_minutes_used || 0
+    }
   };
 }
 
@@ -54,7 +61,7 @@ function requestContext(req) {
 router.post('/signup',
   body('email').isEmail(),
   body('password').isLength({ min: 8 }),
-  body('name').optional().isString(),
+  body('name').isString().trim().notEmpty().withMessage('Name is required'),
   async (req, res, next) => {
     try {
       const errors = validationResult(req);
@@ -65,7 +72,27 @@ router.post('/signup',
       if (exists) throw createError(409, 'Email already registered');
 
       const passwordHash = await hashPassword(password);
-      const user = await User.create({ email, name, passwordHash, role: 'user' });
+      
+      // Create user with inbound role, active status, and subscription
+      const user = await User.create({
+        email,
+        name,
+        passwordHash,
+        role: 'inbound', // Default to inbound role
+        status: 'active',
+        subscription: {
+          plan: 'basic',
+          call_minutes_allocated: 1000,
+          call_minutes_used: 0,
+          start_date: new Date(),
+          notes: 'New inbound user'
+        },
+        millis_config: {
+          assigned_phone_numbers: [],
+          assigned_agents: [],
+          assigned_knowledge_bases: []
+        }
+      });
 
       const { accessToken, refreshToken } = await createSession(user, requestContext(req));
       setAuthCookies(res, accessToken, refreshToken);
@@ -89,6 +116,16 @@ router.post('/login',
       const ok = await verifyPassword(password, user.passwordHash);
       if (!ok) throw createError(401, 'Invalid credentials');
 
+      // Check if user is suspended
+      if (user.status === 'suspended') {
+        throw createError(403, 'Account suspended. Please contact support.');
+      }
+
+      // Check if user is pending approval
+      if (user.status === 'pending_approval') {
+        throw createError(403, 'Account pending approval. Please wait for admin approval.');
+      }
+
       const { accessToken, refreshToken } = await createSession(user, requestContext(req));
       setAuthCookies(res, accessToken, refreshToken);
 
@@ -99,45 +136,66 @@ router.post('/login',
 router.post('/refresh', async (req, res, next) => {
   try {
     const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME] || req.body?.refreshToken;
-    console.log('Refresh attempt - has refresh token:', !!refreshToken);
     
-    if (!refreshToken) throw createError(400, 'Missing refresh token');
+    if (!refreshToken) {
+      // Missing token is expected after logout, don't log as error
+      return res.status(400).json({ error: 'Missing refresh token' });
+    }
 
     const context = requestContext(req);
     const session = await findSessionByRefreshToken(refreshToken, context);
-    console.log('Refresh attempt - session found:', !!session);
     
-    if (!session) throw createError(401, 'Invalid refresh token');
+    if (!session) {
+      // Invalid token is expected after logout, don't log as error
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
 
     const user = await User.findById(session.user);
     if (!user) {
       await revokeSession(session);
-      throw createError(401, 'Invalid refresh token');
+      return res.status(401).json({ error: 'Invalid refresh token' });
     }
 
     const { accessToken, refreshToken: rotatedRefreshToken } = await rotateSession(session, user, context);
     setAuthCookies(res, accessToken, rotatedRefreshToken);
 
-    console.log('Refresh successful for user:', user.email);
     res.json({ user: buildUserResponse(user) });
   } catch (e) { 
-    console.log('Refresh failed:', e.message);
+    // Only log unexpected errors
+    if (e.status && e.status >= 500) {
+      console.error('Refresh error:', e.message);
+    }
     next(e); 
   }
 });
 
-router.post('/logout', requireAuth, async (req, res, next) => {
+// Logout endpoint - use optionalAuth to get session if available, but don't fail if not
+router.post('/logout', optionalAuth, async (req, res, next) => {
   try {
+    // Try to get session from auth middleware if available
     if (req.authSession) {
       await revokeSession(req.authSession);
     } else if (req.cookies?.[REFRESH_COOKIE_NAME]) {
-      const session = await findSessionByRefreshToken(req.cookies[REFRESH_COOKIE_NAME], requestContext(req));
-      if (session) await revokeSession(session);
+      // Try to find and revoke session by refresh token
+      try {
+        const session = await findSessionByRefreshToken(req.cookies[REFRESH_COOKIE_NAME], requestContext(req));
+        if (session) {
+          await revokeSession(session);
+        }
+      } catch (sessionError) {
+        // Session might already be revoked or invalid, that's okay
+        // Continue to clear cookies anyway
+      }
     }
 
+    // Always clear cookies, even if session wasn't found
     clearAuthCookies(res);
     res.status(204).send();
-  } catch (e) { next(e); }
+  } catch (e) { 
+    // Even if there's an error, clear cookies and return success
+    clearAuthCookies(res);
+    res.status(204).send();
+  }
 });
 
 router.get('/me', requireAuth, (req, res) => {

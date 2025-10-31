@@ -12,7 +12,7 @@ const router = express.Router();
 
 router.use(requireGetMethod);
 router.use(requireAuth);
-router.use(requireRoles(['owner', 'admin']));
+router.use(requireRoles(['admin', 'inbound', 'outbound']));
 
 router.get('/auth/me', overviewCtrl.currentUser);
 router.get('/me', overviewCtrl.overview);

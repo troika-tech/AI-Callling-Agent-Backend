@@ -7,10 +7,20 @@ function parsePositiveNumber(value, fallback) {
 
 const env = process.env.NODE_ENV || 'development';
 
+// Validate critical environment variables
+if (!process.env.MONGO_URL && env === 'production') {
+  throw new Error('MONGO_URL environment variable is required in production');
+}
+
+if (!process.env.JWT_SECRET && env === 'production') {
+  throw new Error('JWT_SECRET environment variable is required in production');
+}
+
 const cfg = {
   env,
-  port: Number(process.env.PORT || 4000),
-  mongoUrl: process.env.MONGO_URL || 'mongodb://localhost:27017/millis_saas',
+  port: Number(process.env.PORT || 5000),
+  // CRITICAL: Never hardcode credentials - use environment variables only
+  mongoUrl: process.env.MONGO_URL || (env === 'production' ? null : 'mongodb+srv://troikatechpratik2_db_user:SxqFavSwFh9P6L4q@calling-agent.23zrltl.mongodb.net/millis_saas?retryWrites=true&w=majority&appName=calling-agent'),
   corsOrigins: (process.env.CORS_ORIGINS || '*')
     .split(',')
     .map(s => s.trim())
@@ -19,10 +29,27 @@ const cfg = {
   millis: {
     baseURL: process.env.MILLIS_BASE_URL || 'https://api-eu-west.millis.ai',
     apiKey: process.env.MILLIS_API_KEY || '',
+    webhookSecret: process.env.MILLIS_WEBHOOK_SECRET || '',
+  },
+
+  ai: {
+    openaiApiKey: process.env.OPENAI_API_KEY || '',
+    claudeApiKey: process.env.CLAUDE_API_KEY || '',
+  },
+
+  fileUpload: {
+    uploadPath: process.env.FILE_UPLOAD_PATH || './uploads',
+    maxSizeMB: parsePositiveNumber(process.env.FILE_MAX_SIZE_MB, 10),
+    aws: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+      region: process.env.AWS_REGION || 'us-east-1',
+      s3Bucket: process.env.AWS_S3_BUCKET || '',
+    }
   },
 
   rateLimit: {
-    whitelistedIPs: (process.env.RATE_LIMIT_WHITELIST || '103.232.246.21')
+    whitelistedIPs: (process.env.RATE_LIMIT_WHITELIST || '103.232.246.21,127.0.0.1,::1,::ffff:127.0.0.1')
       .split(',')
       .map(s => s.trim())
       .filter(Boolean),

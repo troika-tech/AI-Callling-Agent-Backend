@@ -20,7 +20,10 @@ async function requireAuth(req, _res, next) {
     token = req.cookies[SESSION_COOKIE_NAME];
   }
 
-  if (!token) return next(createError(401, 'Missing token'));
+  if (!token) {
+    // Don't log missing token as error - it's expected for unauthenticated requests
+    return next(createError(401, 'Missing token'));
+  }
 
   try {
     const payload = verifyToken(token);
@@ -69,12 +72,24 @@ async function requireAuth(req, _res, next) {
       req.authSession = session;
     }
 
+    // Check if user is suspended
+    if (user.status === 'suspended') {
+      return next(createError(403, 'Account suspended. Please contact support.'));
+    }
+
+    // Check if user is pending approval
+    if (user.status === 'pending_approval') {
+      return next(createError(403, 'Account pending approval.'));
+    }
+
     req.user = {
       id: user._id.toString(),
       _id: user._id,
       email: user.email,
       role: user.role,
-      name: user.name
+      name: user.name,
+      status: user.status,
+      subscription: user.subscription
     };
     next();
   } catch (err) {
@@ -102,4 +117,71 @@ function requireRole(role) {
   return requireRoles([role]);
 }
 
-module.exports = { requireAuth, requireRole, requireRoles };
+// Optional auth middleware - doesn't fail if token is missing, but sets req.user if valid token is present
+async function optionalAuth(req, _res, next) {
+  const hdr = req.headers.authorization || '';
+  let token = hdr.startsWith('Bearer ') ? hdr.slice(7).trim() : null;
+
+  if (!token && req.cookies && req.cookies[SESSION_COOKIE_NAME]) {
+    token = req.cookies[SESSION_COOKIE_NAME];
+  }
+
+  // If no token, just continue without setting req.user
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const payload = verifyToken(token);
+    const user = await User.findById(payload.sub).lean();
+    if (!user) return next();
+
+    if (payload.sid) {
+      const session = await AuthSession.findOne({
+        sessionId: payload.sid,
+        user: user._id,
+        revokedAt: { $exists: false },
+        expiresAt: { $gt: new Date() }
+      });
+
+      if (!session) {
+        return next();
+      }
+
+      req.authSession = session;
+    }
+
+    req.user = {
+      id: user._id.toString(),
+      _id: user._id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+      status: user.status,
+      subscription: user.subscription
+    };
+    next();
+  } catch (err) {
+    // For optional auth, just continue without setting req.user on any error
+    next();
+  }
+}
+
+// Convenience functions for specific roles
+const requireAdmin = requireRole('admin');
+const requireInbound = requireRole('inbound');
+const requireOutbound = requireRole('outbound');
+
+// Middleware to require inbound OR outbound (for shared features)
+const requireInboundOrOutbound = requireRoles(['inbound', 'outbound']);
+
+module.exports = {
+  requireAuth,
+  requireRole,
+  requireRoles,
+  requireAdmin,
+  requireInbound,
+  requireOutbound,
+  requireInboundOrOutbound,
+  optionalAuth
+};

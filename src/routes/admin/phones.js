@@ -22,8 +22,17 @@ router.get('/',
 );
 
 router.post('/import',
-  body('phones').isArray({ min: 1 }).withMessage('Phones must be a non-empty array'),
-  body('phones.*').isString().trim().isLength({ min: 1, max: 20 }).withMessage('Each phone must be a string between 1-20 characters'),
+  body('phones').optional().isArray().withMessage('Phones must be an array'),
+  body('phones.*').optional().isString().trim().isLength({ min: 1, max: 20 }).withMessage('Each phone must be a string between 1-20 characters'),
+  // For Exotel import
+  body('phone').optional().isString().trim().isLength({ min: 1, max: 20 }).withMessage('Phone must be a string between 1-20 characters'),
+  body('country').optional().isString().trim().isLength({ min: 1, max: 20 }).withMessage('Country must be a string'),
+  body('region').optional().isString().trim().isLength({ min: 1, max: 20 }).withMessage('Region must be a string'),
+  body('provider').optional().isString().trim().isLength({ min: 1, max: 20 }).withMessage('Provider must be a string'),
+  body('api_key').optional().isString().trim().withMessage('API key must be a string'),
+  body('api_token').optional().isString().trim().withMessage('API token must be a string'),
+  body('sid').optional().isString().trim().withMessage('SID must be a string'),
+  body('subdomain').optional().isString().trim().withMessage('Subdomain must be a string'),
   validate,
   ctrl.import
 );

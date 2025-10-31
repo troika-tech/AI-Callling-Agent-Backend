@@ -14,12 +14,29 @@ const authRoutes = require('./routes/auth');
 const meRoutes = require('./routes/me');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
+const rateLimitResetRoutes = require('./routes/rate-limit-reset');
 const adminAgentsRoutes = require('./routes/admin/agents');
 const adminPhonesRoutes = require('./routes/admin/phones');
 const adminCampaignsRoutes = require('./routes/admin/campaigns');
 const adminCallsRoutes = require('./routes/admin/calls');
 const adminUsersRoutes = require('./routes/admin/users');
+const adminOverviewRoutes = require('./routes/admin/overview');
+const adminLogsRoutes = require('./routes/admin/logs');
 const dashboardRoutes = require('./routes/dashboard');
+const callerPhoneRoutes = require('./routes/callerPhone');
+
+// Phase 3 - Inbound routes
+const millisWebhookRoutes = require('./routes/webhooks/millis');
+const exotelWebhookRoutes = require('./routes/webhooks/exotel');
+const inboundCallsRoutes = require('./routes/inbound/calls');
+const inboundLeadsRoutes = require('./routes/inbound/leads');
+const inboundAnalyticsRoutes = require('./routes/inbound/analytics');
+
+// Phase 4 - Outbound routes
+const outboundCampaignsRoutes = require('./routes/outbound/campaigns');
+const outboundAnalyticsRoutes = require('./routes/outbound/analytics');
+const outboundLeadsRoutes = require('./routes/outbound/leads');
+const outboundCallsRoutes = require('./routes/outbound/calls');
 
 function createApp() {
   const app = express();
@@ -42,12 +59,22 @@ function createApp() {
     crossOriginEmbedderPolicy: false
   }));
 
+  // Security: Restrict CORS in production - "*" is a security risk
+  let corsOrigin = cfg.corsOrigins.includes("*") ? true : cfg.corsOrigins;
+  if (cfg.env === 'production' && corsOrigin === true) {
+    console.warn('⚠️ WARNING: CORS is set to "*" in production. This is a security risk!');
+    console.warn('⚠️ Please set CORS_ORIGINS environment variable to specific domains.');
+    // In production, default to empty array if wildcard detected (more secure)
+    corsOrigin = [];
+  }
+
   app.use(
     cors({
-      origin: cfg.corsOrigins.includes("*") ? true : cfg.corsOrigins,
+      origin: corsOrigin,
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Range'],
+      exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length', 'Content-Type']
     })
   );
 
@@ -57,7 +84,7 @@ function createApp() {
 
   const adminLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 60,
+    max: 300, // Increased for development
     message: { error: 'Too many admin requests, please try again later.' },
     standardHeaders: true,
     legacyHeaders: false,
@@ -69,7 +96,7 @@ function createApp() {
 
   const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 1000, // Increased for development
     message: { error: 'Too many requests, please try again later.' },
     standardHeaders: true,
     legacyHeaders: false,
@@ -80,9 +107,17 @@ function createApp() {
   });
 
   app.use("/api/v1/health", health);
+  app.use("/api/v1/rate-limit", rateLimitResetRoutes);
   app.use("/api/v1/auth", generalLimiter, authRoutes);
   app.use("/api/v1/me", generalLimiter, meRoutes);
   app.use("/api/v1/user", generalLimiter, userRoutes);
+
+  // Phase 3 - Webhook routes (no rate limiting for webhooks)
+  app.use("/api/webhooks", millisWebhookRoutes);
+  app.use("/api/webhooks/exotel", exotelWebhookRoutes);
+  
+  // Recording proxy routes (no authentication needed for audio streaming)
+  app.use("/api/v1/calls", outboundCallsRoutes);
 
   const adminRouter = express.Router();
   adminRouter.use(adminRoutes);
@@ -90,9 +125,25 @@ function createApp() {
   adminRouter.use('/phones', adminPhonesRoutes);
   adminRouter.use('/campaigns', adminCampaignsRoutes);
   adminRouter.use('/users', adminUsersRoutes);
+  adminRouter.use('/stats', adminOverviewRoutes);
+  adminRouter.use('/logs', adminLogsRoutes);
   adminRouter.use('/', adminCallsRoutes);
 
   app.use("/api/v1/admin", adminLimiter, adminRouter);
+  
+  // Phase 3 - Inbound routes
+  app.use("/api/v1/inbound/calls", generalLimiter, inboundCallsRoutes);
+  app.use("/api/v1/inbound/leads", generalLimiter, inboundLeadsRoutes);
+  app.use("/api/v1/inbound/analytics", generalLimiter, inboundAnalyticsRoutes);
+  
+  // Phase 4 - Outbound routes
+  app.use("/api/v1/outbound/campaigns", generalLimiter, outboundCampaignsRoutes);
+  app.use("/api/v1/outbound/campaigns", generalLimiter, outboundAnalyticsRoutes);
+  app.use("/api/v1/outbound/campaigns", generalLimiter, outboundLeadsRoutes);
+  
+  // Caller phone routes
+  app.use("/api/v1", generalLimiter, callerPhoneRoutes);
+  
   app.use("/api", (req, res, next) => {
     if (req.path.startsWith("/v1/")) {
       return next();
@@ -106,7 +157,16 @@ function createApp() {
   app.use((_req, res) => res.status(404).json({ error: "Not found" }));
 
   app.use((err, _req, res, _next) => {
-    console.error('Error:', err);
+    // Don't log expected authentication errors (401, 400 for missing tokens)
+    // These are normal after logout or for unauthenticated requests
+    const isExpectedAuthError = err.status === 401 || 
+                                 (err.status === 400 && (err.message?.includes('token') || err.message?.includes('refresh token'))) ||
+                                 err.name === 'UnauthorizedError' ||
+                                 (err.name === 'TokenExpiredError' && _req.path?.includes('/refresh'));
+    
+    if (!isExpectedAuthError) {
+      console.error('Error:', err);
+    }
 
     if (err.name === 'ValidationError') {
       return res.status(400).json({
@@ -151,9 +211,19 @@ const app = createApp();
 async function start() {
   await connectMongo();
 
-  return app.listen(cfg.port, () => {
+  const server = app.listen(cfg.port, () => {
     console.log(`API listening on http://localhost:${cfg.port} (env=${cfg.env})`);
   });
+
+  // Initialize Socket.IO for real-time features (Phase 5)
+  const { initializeSocket } = require('./services/socketService');
+  initializeSocket(server);
+
+  // Start campaign monitor (Phase 5)
+  const { startCampaignMonitor } = require('./services/campaignMonitor');
+  startCampaignMonitor();
+
+  return server;
 }
 
 if (require.main === module) {
