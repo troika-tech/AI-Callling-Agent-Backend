@@ -397,6 +397,151 @@ router.get('/exotel/fetch', asyncHandler(async (req, res) => {
   }
 }));
 
+// GET /api/v1/inbound/calls/recording/proxy?url=...&token=...
+// Proxy endpoint for Exotel recording URLs with authentication
+// Note: token param is optional fallback if auth middleware fails, but auth middleware should handle it
+
+// OPTIONS handler for CORS preflight
+router.options('/recording/proxy', (req, res) => {
+  const origin = req.headers.origin || 'http://localhost:3000';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.status(204).end();
+});
+
+router.get('/recording/proxy', asyncHandler(async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'Missing required query param: url' });
+
+  // Use authenticated user from middleware (requireAuth)
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized - authentication required' });
+  }
+
+  // Get user's Exotel credentials
+  let creds;
+  const phones = await ExotelPhone.find({ user_id: userId, provider: 'exotel', status: { $in: ['active', 'live'] } });
+  if (phones.length) {
+    const phone = phones[0];
+    creds = {
+      subdomain: phone.subdomain || 'api',
+      account_sid: phone.account_sid,
+      api_key: phone.api_key || phone.account_sid,
+      api_token: phone.api_token,
+    };
+    if (!creds.account_sid || !creds.api_key || !creds.api_token) {
+      return res.status(400).json({ error: 'No valid Exotel credentials on file (user record).' });
+    }
+  } else {
+    // Fallback: Use global env credentials
+    creds = {
+      subdomain: process.env.EXOTEL_SUBDOMAIN || 'api',
+      account_sid: process.env.EXOTEL_ACCOUNT_SID,
+      api_key: process.env.EXOTEL_API_KEY || process.env.EXOTEL_ACCOUNT_SID,
+      api_token: process.env.EXOTEL_API_TOKEN,
+    };
+    if (!creds.account_sid || !creds.api_key || !creds.api_token) {
+      return res.status(400).json({ error: 'No Exotel credentials present: please set env or user config.' });
+    }
+  }
+
+  try {
+    // Forward Range header if present (for audio seeking)
+    const requestHeaders = {
+      'Accept': 'audio/mpeg, audio/mp3, audio/wav, audio/*'
+    };
+    if (req.headers.range) {
+      requestHeaders['Range'] = req.headers.range;
+    }
+
+    // Fetch the recording with authentication
+    const response = await axios.get(url, {
+      auth: {
+        username: creds.api_key,
+        password: creds.api_token
+      },
+      responseType: 'stream',
+      headers: requestHeaders,
+      validateStatus: (status) => status >= 200 && status < 300 || status === 206 // Accept 206 Partial Content
+    });
+
+    // Set CORS headers - use specific origin when credentials are included
+    const origin = req.headers.origin || 'http://localhost:3000';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, Authorization');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length, Content-Type');
+    
+    // Forward status code (important for 206 Partial Content)
+    res.status(response.status);
+    
+    // Set content type
+    if (response.headers['content-type']) {
+      res.setHeader('Content-Type', response.headers['content-type']);
+    } else {
+      res.setHeader('Content-Type', 'audio/mpeg');
+    }
+
+    // Forward content-range if available (for range requests)
+    if (response.headers['content-range']) {
+      res.setHeader('Content-Range', response.headers['content-range']);
+    }
+
+    // Forward accept-ranges if available
+    if (response.headers['accept-ranges']) {
+      res.setHeader('Accept-Ranges', response.headers['accept-ranges']);
+    }
+
+    // Forward content-length if available
+    if (response.headers['content-length']) {
+      res.setHeader('Content-Length', response.headers['content-length']);
+    }
+
+    // Stream the recording to the client
+    response.data.pipe(res);
+  } catch (error) {
+    console.error('Error proxying recording:', error.message);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    
+    const status = error.response?.status || 500;
+    let message = error.message;
+    
+    // Try to extract better error message
+    if (error.response?.data) {
+      if (typeof error.response.data === 'string') {
+        message = error.response.data;
+      } else if (error.response.data.error) {
+        message = error.response.data.error;
+      } else if (error.response.data.message) {
+        message = error.response.data.message;
+      }
+    }
+    
+    // Set CORS headers even for errors - use specific origin when credentials are included
+    const origin = req.headers.origin || 'http://localhost:3000';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, Authorization');
+    res.setHeader('Content-Type', 'application/json');
+    
+    return res.status(status).json({ 
+      error: `Failed to fetch recording: ${message}`,
+      details: error.message
+    });
+  }
+}));
+
 // GET /api/v1/inbound/calls/exotel/fetch-by-ref?refId=...
 router.get('/exotel/fetch-by-ref', asyncHandler(async (req, res) => {
   const { refId } = req.query;
